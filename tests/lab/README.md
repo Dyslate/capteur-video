@@ -11,6 +11,8 @@ cd tests/lab
 python serve.py        # generates the media if missing, serves http://127.0.0.1:8765 and opens it
 ```
 
+On Windows, double-click `lancer-labo.bat` to start the lab and `verifier.bat` to check the downloads.
+
 1. Open the extension's side panel.
 2. Open a scenario page and download it in several formats and qualities.
 3. Run `python verify.py` (in another terminal): it inspects every "Lab NN …" file downloaded since `serve.py` started.
@@ -40,6 +42,7 @@ Every page shows its own log (requests with status, size, content type, timing; 
 | `make_fixtures.py` | Generates `media/` (about 15 MB, ~10 s). `--clean` deletes it. |
 | `serve.py` | Local server: byte ranges, `bytestart`/`byteend`, no caching, logs every media request with its `Referer`. `--port`, `--no-browser`. |
 | `verify.py` | Checks downloads: tracks, codec vs. extension, 8 s duration, resolution, decoding errors, "sans son" files really silent, nothing from scenario 09. `--since MIN`, `--dir PATH`, `-v`. Exit code 1 on failure. |
+| `lancer-labo.bat`, `verifier.bat` | Windows launchers for `serve.py` and `verify.py`. |
 | `lab.js`, `lab.css` | Shared page script (request log) and style. |
 
 ## Notes

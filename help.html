@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Installer le module local · Capteur vidéo</title>
+  <title>Local helper · Capteur vidéo</title>
   <link rel="stylesheet" href="panel.css">
   <style>
     body { display: block; }
@@ -19,45 +19,45 @@
 </head>
 <body>
   <main class="doc">
-    <h1>Installer le module local</h1>
-    <p class="muted">Le module (yt-dlp + ffmpeg) permet de télécharger YouTube et des milliers d'autres sites, en MP4 ou en MP3. Il s'installe une seule fois.</p>
+    <h1>Install the local helper</h1>
+    <p class="muted">The helper (yt-dlp + ffmpeg) downloads YouTube and thousands of other sites, and unlocks the MKV, FLAC and Opus formats. It is a one-time install.</p>
 
     <section class="card status">
-      <div class="card-head"><strong>État du module</strong><button id="check" class="ghost">Revérifier</button></div>
-      <p id="status" class="note">Vérification…</p>
-      <div class="row"><button id="update" class="ghost" hidden>Mettre à jour yt-dlp</button><span id="update-status" class="note"></span></div>
+      <div class="card-head"><strong>Helper status</strong><button id="check" class="ghost">Check again</button></div>
+      <p id="status" class="note">Checking…</p>
+      <div class="row"><button id="update" class="ghost" hidden>Update yt-dlp</button><span id="update-status" class="note"></span></div>
     </section>
 
     <h2>Windows</h2>
     <ol>
-      <li>Installez <strong>Python 3</strong> depuis <a href="https://www.python.org/downloads/" target="_blank" rel="noopener">python.org</a> en cochant « Add python.exe to PATH ».</li>
-      <li>Ouvrez le dossier de l'extension, celui que vous avez choisi dans <code>chrome://extensions</code> (par exemple <code>Téléchargements\capteur-video</code>).</li>
-      <li>Double-cliquez sur <strong><code>installer-module.bat</code></strong>, juste à côté de <code>manifest.json</code>. Comptez une à trois minutes.</li>
-      <li>Pour YouTube, installez Deno (dans un terminal) :
+      <li>Install <strong>Python 3</strong> from <a href="https://www.python.org/downloads/" target="_blank" rel="noopener">python.org</a> and tick “Add python.exe to PATH”.</li>
+      <li>Open the extension folder, the one you picked in <code>chrome://extensions</code> (for example <code>Downloads\capteur-video</code>).</li>
+      <li>Double-click <strong><code>install-helper.bat</code></strong>, right next to <code>manifest.json</code>. It takes one to three minutes.</li>
+      <li>For YouTube, install Deno (in a terminal):
         <pre>winget install DenoLand.Deno</pre></li>
-      <li>Redémarrez Chrome, puis cliquez sur « Revérifier » ci-dessus.</li>
+      <li>Restart Chrome, then click “Check again” above.</li>
     </ol>
-    <p class="note">Vous n'avez pas le dossier ? Téléchargez l'<a id="zip" href="#" target="_blank" rel="noopener">archive du projet</a>, décompressez-la, et chargez ce dossier dans Chrome.</p>
+    <p class="note">You don't have the folder? Download the <a id="zip" href="#" target="_blank" rel="noopener">project archive</a>, unzip it, and load that folder in Chrome.</p>
 
     <h2>macOS / Linux</h2>
     <ol>
-      <li>Vérifiez que Python 3.9 ou plus est installé : <code>python3 --version</code>.</li>
-      <li>Dans le dossier de l'extension :
+      <li>Check that Python 3.9 or later is installed: <code>python3 --version</code>.</li>
+      <li>In the extension folder:
         <pre>sh helper/install.sh</pre></li>
-      <li>Pour YouTube, installez Deno :
-        <pre>brew install deno            # macOS
+      <li>For YouTube, install Deno:
+        <pre>brew install deno                              # macOS
 curl -fsSL https://deno.land/install.sh | sh   # Linux</pre></li>
-      <li>Redémarrez Chrome.</li>
+      <li>Restart Chrome.</li>
     </ol>
 
-    <h2>Bon à savoir</h2>
+    <h2>Good to know</h2>
     <ul>
-      <li>Les fichiers vont dans <code>Téléchargements/Capteur video</code>.</li>
-      <li>Si un site change et que le téléchargement échoue : bouton « Mettre à jour yt-dlp » ci-dessus, ou relancez <code>installer-module.bat</code>.</li>
-      <li>Désinstallation : <code>installer-module.bat --uninstall</code> (dans un terminal), ou <code>python helper/install.py --uninstall</code>.</li>
-      <li>Identifiant de l'extension : <code id="ext-id"></code></li>
-      <li>En cas de problème : <a href="log.html">ouvrez le journal</a>, cliquez sur « Copier » et envoyez-le.</li>
-      <li>Les plateformes protégées par DRM (Netflix, Disney+, Spotify…) restent exclues : leurs vidéos sont chiffrées.</li>
+      <li>Files saved by the helper go to <code>Downloads/Capteur video</code>.</li>
+      <li>If a site changes and downloads start failing: “Update yt-dlp” above, or run <code>install-helper.bat</code> again.</li>
+      <li>Uninstall: <code>install-helper.bat --uninstall</code> (in a terminal), or <code>python helper/install.py --uninstall</code>.</li>
+      <li>Extension ID: <code id="ext-id"></code></li>
+      <li>If something goes wrong: <a href="log.html">open the log</a>, click “Copy” and send it.</li>
+      <li>DRM-protected platforms (Netflix, Disney+, Spotify…) stay excluded: their videos are encrypted.</li>
     </ul>
   </main>
   <script type="module" src="help.js"></script>

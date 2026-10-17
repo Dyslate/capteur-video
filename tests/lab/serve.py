@@ -49,7 +49,7 @@ class LabHandler(http.server.BaseHTTPRequestHandler):
         if "/media/" in path:
             ref = self.headers.get("Referer") or "-"
             rng = self.headers.get("Range") or ""
-            print("  %s %3d %8d o  %s  %s  referer=%s" % (time.strftime("%H:%M:%S"), status, length, path, rng, ref), flush=True)
+            print("  %s %3d %8d B  %s  %s  referer=%s" % (time.strftime("%H:%M:%S"), status, length, path, rng, ref), flush=True)
 
     def do_HEAD(self):
         self.do_GET(head=True)
@@ -111,13 +111,13 @@ class LabHandler(http.server.BaseHTTPRequestHandler):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Serveur du labo de test Capteur vidéo")
+    parser = argparse.ArgumentParser(description="Capteur vidéo test lab server")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--no-browser", action="store_true")
     args = parser.parse_args()
 
     if not os.path.exists(os.path.join(MEDIA, "direct.mp4")):
-        print("Médias de test absents : génération…")
+        print("Test media missing: generating…")
         subprocess.run([sys.executable, os.path.join(HERE, "make_fixtures.py")], check=True)
 
     # verify.py only checks files downloaded after this moment
@@ -126,14 +126,14 @@ def main():
 
     server = http.server.ThreadingHTTPServer(("127.0.0.1", args.port), LabHandler)
     url = "http://127.0.0.1:%d/" % args.port
-    print("Labo de test : %s  (Ctrl+C pour arrêter)" % url)
-    print("Requêtes média :")
+    print("Test lab: %s  (Ctrl+C to stop)" % url)
+    print("Media requests:")
     if not args.no_browser:
         webbrowser.open(url)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\nArrêt du labo.")
+        print("\nLab stopped.")
 
 
 if __name__ == "__main__":

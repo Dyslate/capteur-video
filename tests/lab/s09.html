@@ -1,23 +1,23 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Lab 09 · Flux chiffrés (refus attendu)</title>
+  <title>Lab 09 · Encrypted streams (must be refused)</title>
   <link rel="stylesheet" href="lab.css">
 </head>
 <body>
 <main>
-  <div class="crumb"><a href="index.html">← Labo de test</a></div>
-  <h1><span class="num">09</span> Flux chiffrés (refus attendu)</h1>
-  <p class="muted">Un flux HLS chiffré (AES-128) et un flux DASH protégé (ContentProtection). L'extension doit refuser de les télécharger.</p>
+  <div class="crumb"><a href="index.html">← Test lab</a></div>
+  <h1><span class="num">09</span> Encrypted streams (must be refused)</h1>
+  <p class="muted">An encrypted HLS stream (AES-128) and a protected DASH stream (ContentProtection). The extension must refuse to download them.</p>
   
-  <h2>Résultat attendu dans le panneau</h2>
+  <h2>Expected in the panel</h2>
   <ul class="expect">
-    <li>Deux cartes « Flux protégé » avec le badge DRM.</li>
-    <li>Aucun bouton de téléchargement. Aucun fichier ne doit apparaître.</li>
+    <li>Two “Protected stream” cards with the DRM badge.</li>
+    <li>No download button. No file must appear.</li>
   </ul>
-  <h2>Journal de la page</h2>
+  <h2>Page log</h2>
   <pre id="lablog"></pre>
 </main>
 <script type="module">

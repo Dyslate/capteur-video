@@ -44,6 +44,11 @@ Roadmap. Tick items as they land.
 - [x] Helper jobs run in their own folder: never delete or overwrite an existing file
 - [x] Direct-stream helper downloads are named after the page title
 
+### v2.4
+- [x] Whole app in English (UI, logs, errors, helper, installers, test lab, store listing)
+- [x] Windows launchers at the project root: `install-helper.bat`; lab: `start-lab.bat`, `verify.bat`
+- [x] `verify.py` works without ffmpeg (built-in container inspection)
+
 ## Next
 
 ### Features
@@ -63,7 +68,7 @@ Roadmap. Tick items as they land.
 ### Interface
 - [ ] Thumbnails and real video titles in the media cards
 - [ ] Options page (download folder, concurrency, MP3 bitrate, file name template)
-- [ ] English translation (`_locales`, `chrome.i18n`)
+- [ ] French translation as a second language (`_locales`, `chrome.i18n`)
 - [ ] Desktop notification when a long download finishes
 
 ### Project

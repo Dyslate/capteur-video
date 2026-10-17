@@ -8,7 +8,7 @@ A Chrome extension that spots the videos playing on the pages you visit and save
 - With the optional **local helper** (yt-dlp + ffmpeg), it also handles YouTube and thousands of other sites.
 - DRM-protected platforms (Netflix, Disney+, Spotify…) are always excluded: their media are encrypted.
 
-> The user interface is in French. Code, comments and docs are in English.
+> Everything is in English: interface, logs, helper and docs.
 
 ## Features
 
@@ -34,7 +34,7 @@ Every card has a **Format** picker and a **Quality** picker that adapts to the f
 | Opus | 96 / 128 / 160 kb/s | helper |
 | WAV, FLAC (lossless) | — | WAV in the browser, FLAC with the helper |
 
-The panel picks the engine itself; formats that need the helper are listed as "(module requis)" when it is missing. The last format and quality are remembered.
+The panel picks the engine itself; formats that need the helper are listed as "(helper required)" when it is missing. The last format and quality are remembered.
 
 Other details:
 - **Side panel** with a waiting state, a **Force detection** button that scans the page (`<video>` tags, Open Graph tags, JSON embedded by Instagram/Facebook), and a download list with progress.
@@ -53,7 +53,7 @@ Other details:
 
 Requires Python 3.9+.
 
-- **Windows**: double-click `installer-module.bat` at the root of the extension folder (it checks that Python is installed).
+- **Windows**: double-click `install-helper.bat` at the root of the extension folder (it checks that Python is installed).
 - **macOS / Linux**: `sh helper/install.sh`
 
 The installer creates a private Python environment, installs **yt-dlp** and a bundled **ffmpeg**, and registers the helper with Chrome, Edge, Brave and Chromium. Restart Chrome afterwards.
@@ -66,7 +66,7 @@ brew install deno                               # macOS
 curl -fsSL https://deno.land/install.sh | sh    # Linux
 ```
 
-Files saved by the helper go to `Downloads/Capteur video`. When a site changes and downloads start failing, use **Mettre à jour yt-dlp** on the help page (or run the installer again); `python helper/install.py --uninstall` (or `installer-module.bat --uninstall`) removes everything.
+Files saved by the helper go to `Downloads/Capteur video`. When a site changes and downloads start failing, use **Update yt-dlp** on the help page (or run the installer again); `python helper/install.py --uninstall` (or `install-helper.bat --uninstall`) removes everything.
 
 The extension has a fixed ID (`gkbhlagbekepghjaegeolhjkmbnkcjpn`, from the `key` in `manifest.json`) so the helper can trust it.
 
@@ -108,7 +108,7 @@ The Chrome Web Store rejects extensions that facilitate YouTube downloads, which
 
 ## Troubleshooting
 
-- **Journal** (link at the bottom of the side panel): every detection decision (added / ignored and why), stream analysis, probe, track pairing, request retry, merge, decode and save, with timings. Filter it, then **Copier** or **Exporter** to share it. It also shows the end of the local helper's `helper.log` (yt-dlp verbose output).
+- **Log** (link at the bottom of the side panel): every detection decision (added / ignored and why), stream analysis, probe, track pairing, request retry, merge, decode and save, with timings. Filter it, then **Copy** or **Export** to share it. It also shows the end of the local helper's `helper.log` (yt-dlp verbose output).
 - **Test lab**: `tests/lab/` serves synthetic streams of every kind and checks the downloaded files. See [tests/lab/README.md](tests/lab/README.md).
 
 ## Development

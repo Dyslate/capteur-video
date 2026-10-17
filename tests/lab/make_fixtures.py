@@ -39,7 +39,7 @@ def find_ffmpeg():
                              capture_output=True, text=True)
         if out.returncode == 0 and out.stdout.strip():
             return out.stdout.strip()
-    sys.exit("ffmpeg introuvable : installez-le, ou installez d'abord le module local (helper/).")
+    sys.exit("ffmpeg not found: install it, or install the local helper first (install-helper.bat).")
 
 
 FFMPEG = None
@@ -68,14 +68,14 @@ def main():
     global FFMPEG
     if "--clean" in sys.argv:
         shutil.rmtree(OUT, ignore_errors=True)
-        print("Médias supprimés.")
+        print("Media deleted.")
         return
     FFMPEG = find_ffmpeg()
-    print("ffmpeg :", FFMPEG)
+    print("ffmpeg:", FFMPEG)
     shutil.rmtree(OUT, ignore_errors=True)
     os.makedirs(OUT)
 
-    step("source : mire 720p + bip de 440 Hz, %d s" % SECONDS)
+    step("source: 720p test pattern + 440 Hz beep, %d s" % SECONDS)
     ff("-f", "lavfi", "-i", "testsrc2=size=1280x720:rate=25", "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000",
        "-t", str(SECONDS), "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-g", "50",
        "-c:a", "aac", "-b:a", "128k", "-ac", "2", "-shortest", "-movflags", "+faststart", "direct.mp4")
@@ -84,10 +84,10 @@ def main():
     ff("-i", "direct.mp4", "-vf", "scale=640:360", "-c:v", "libvpx-vp9", "-deadline", "realtime", "-cpu-used", "8",
        "-b:v", "800k", "-c:a", "libopus", "-b:a", "96k", "direct.webm")
 
-    step("audio seul (M4A)")
+    step("audio only (M4A)")
     ff("-i", "direct.mp4", "-vn", "-c:a", "copy", "-movflags", "+faststart", "audio.m4a")
 
-    step("HLS en TS, deux qualités")
+    step("HLS with TS segments, two qualities")
     for height, scale, rate in ((720, "1280:720", "2500k"), (360, "640:360", "700k")):
         d = mkdir("hls-ts", str(height))
         ff("-i", os.path.join(OUT, "direct.mp4"), "-vf", "scale=" + scale, "-c:v", "libx264", "-preset", "veryfast",
@@ -97,13 +97,13 @@ def main():
           "#EXT-X-STREAM-INF:BANDWIDTH=2700000,RESOLUTION=1280x720\n720/index.m3u8\n"
           "#EXT-X-STREAM-INF:BANDWIDTH=850000,RESOLUTION=640x360\n360/index.m3u8\n")
 
-    step("HLS en fMP4")
+    step("HLS with fMP4 segments")
     d = mkdir("hls-fmp4")
     ff("-i", os.path.join(OUT, "direct.mp4"), "-c", "copy", "-f", "hls", "-hls_time", "2", "-hls_list_size", "0",
        "-hls_segment_type", "fmp4", "-hls_fmp4_init_filename", "init.mp4", "-hls_segment_filename", "s%03d.m4s",
        "index.m3u8", cwd=d)
 
-    step("DASH : vidéo 720p et 360p séparées de l'audio")
+    step("DASH: 720p and 360p video, separate audio")
     d = mkdir("dash")
     ff("-i", os.path.join(OUT, "direct.mp4"), "-map", "0:v", "-map", "0:v", "-map", "0:a",
        "-c:v", "libx264", "-preset", "veryfast", "-g", "50", "-s:v:0", "1280x720", "-b:v:0", "2500k",
@@ -111,13 +111,13 @@ def main():
        "-use_template", "1", "-use_timeline", "1", "-adaptation_sets", "id=0,streams=v id=1,streams=a",
        "manifest.mpd", cwd=d)
 
-    step("pistes séparées façon Instagram (vidéo seule + audio seul, fragmentées)")
+    step("Instagram-style split tracks (video only + audio only, fragmented)")
     d = mkdir("split")
     frag = ["-movflags", "frag_keyframe+empty_moov+default_base_moof+global_sidx", "-frag_duration", "1000000"]
     ff("-i", os.path.join(OUT, "direct.mp4"), "-an", "-c", "copy", *frag, "video.mp4", cwd=d)
     ff("-i", os.path.join(OUT, "direct.mp4"), "-vn", "-c", "copy", *frag, "audio.m4a", cwd=d)
 
-    step("flux chiffrés (doivent être refusés)")
+    step("encrypted streams (must be refused)")
     d = mkdir("encrypted")
     playlist = open(os.path.join(OUT, "hls-ts", "720", "index.m3u8"), encoding="utf-8").read()
     playlist = playlist.replace("#EXT-X-TARGETDURATION", '#EXT-X-KEY:METHOD=AES-128,URI="key.bin"\n#EXT-X-TARGETDURATION')
@@ -130,7 +130,7 @@ def main():
     write("encrypted/dash.mpd", mpd)
 
     size = sum(os.path.getsize(os.path.join(b, f)) for b, _, fs in os.walk(OUT) for f in fs)
-    print("Terminé : %d fichiers, %.1f Mo dans %s" % (sum(len(fs) for _, _, fs in os.walk(OUT)), size / 1e6, OUT))
+    print("Done: %d files, %.1f MB in %s" % (sum(len(fs) for _, _, fs in os.walk(OUT)), size / 1e6, OUT))
 
 
 if __name__ == "__main__":

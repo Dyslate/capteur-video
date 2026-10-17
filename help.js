@@ -8,22 +8,22 @@ document.getElementById("zip").href = REPO_URL + "/archive/refs/heads/main.zip";
 
 async function check() {
   const out = document.getElementById("status");
-  out.textContent = "Vérification…";
+  out.textContent = "Checking…";
   const h = await pingHelper({ force: true });
   document.getElementById("update").hidden = !h.ok;
   if (!h.ok) {
     out.className = "note warn";
-    out.textContent = h.error + ". Suivez les étapes ci-dessous, puis redémarrez Chrome.";
+    out.textContent = h.error + ". Follow the steps below, then restart Chrome.";
     return;
   }
   out.className = "note";
   out.textContent = [
-    `Module ${h.version} installé`,
-    `yt-dlp ${h.ytdlp || "absent"}`,
-    `ffmpeg ${h.ffmpeg ? "OK" : "absent"}`,
-    `JavaScript (YouTube) : ${h.jsRuntime || "absent, installez Deno"}`,
-    `Dossier : ${h.downloadDir}`,
-    `Journal : ${h.logFile || "?"}`,
+    `Helper ${h.version} installed`,
+    `yt-dlp ${h.ytdlp || "missing"}`,
+    `ffmpeg ${h.ffmpeg ? "OK" : "missing"}`,
+    `JavaScript (YouTube): ${h.jsRuntime || "missing, install Deno"}`,
+    `Folder: ${h.downloadDir}`,
+    `Log: ${h.logFile || "?"}`,
   ].join(" · ");
 }
 
@@ -34,9 +34,9 @@ document.getElementById("update").addEventListener("click", async (e) => {
   const button = e.currentTarget;
   const status = document.getElementById("update-status");
   button.disabled = true;
-  status.textContent = "Mise à jour en cours, cela peut prendre une minute…";
+  status.textContent = "Updating, this can take a minute…";
   const res = await updateHelper();
-  status.textContent = res?.type === "updated" ? `yt-dlp est à jour (${res.ytdlp || "?"})` : "Échec : " + (res?.message || "erreur inconnue");
+  status.textContent = res?.type === "updated" ? `yt-dlp is up to date (${res.ytdlp || "?"})` : "Failed: " + (res?.message || "unknown error");
   button.disabled = false;
   check();
 });

@@ -1,29 +1,29 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Lab 07 · Manifeste caché dans la page</title>
+  <title>Lab 07 · Manifest hidden in the page</title>
   <link rel="stylesheet" href="lab.css">
 </head>
 <body>
 <main>
-  <div class="crumb"><a href="index.html">← Labo de test</a></div>
-  <h1><span class="num">07</span> Manifeste caché dans la page</h1>
-  <p class="muted">Rien ne se charge tout seul : le manifeste DASH est caché dans les données JSON de la page, comme sur certaines pages Instagram.</p>
+  <div class="crumb"><a href="index.html">← Test lab</a></div>
+  <h1><span class="num">07</span> Manifest hidden in the page</h1>
+  <p class="muted">Nothing loads by itself: the DASH manifest is hidden in the page's JSON data, like on some Instagram pages.</p>
   <script type="application/json" id="data">{"items": [{"media": {"id": "lab07", "video_dash_manifest": "\u003C?xml version=\"1.0\"?>\u003CMPD xmlns=\"urn:mpeg:dash:schema:mpd:2011\" type=\"static\" mediaPresentationDuration=\"PT8S\">\u003CPeriod>\u003CAdaptationSet contentType=\"video\" mimeType=\"video/mp4\">\u003CRepresentation id=\"v720\" bandwidth=\"1300000\" width=\"1280\" height=\"720\" codecs=\"avc1.64001f\">\u003CBaseURL>media/split/video.mp4\u003C/BaseURL>\u003CSegmentBase indexRange=\"0-1000\"/>\u003C/Representation>\u003C/AdaptationSet>\u003CAdaptationSet contentType=\"audio\" mimeType=\"audio/mp4\">\u003CRepresentation id=\"a1\" bandwidth=\"128000\" codecs=\"mp4a.40.2\">\u003CBaseURL>media/split/audio.m4a\u003C/BaseURL>\u003C/Representation>\u003C/AdaptationSet>\u003C/Period>\u003C/MPD>"}}]}</script>
-  <h2>Résultat attendu dans le panneau</h2>
+  <h2>Expected in the panel</h2>
   <ul class="expect">
-    <li>Au départ : « En attente de médias… ».</li>
-    <li>Après « Forcer la détection » : une carte « Vidéo de la page » · 0:08.</li>
-    <li>MP4 : vidéo et son fusionnés.</li>
+    <li>At first: “Waiting for media…”.</li>
+    <li>After “Force detection”: a “Video from the page” card · 0:08.</li>
+    <li>MP4: video and sound merged.</li>
   </ul>
-  <h2>Journal de la page</h2>
+  <h2>Page log</h2>
   <pre id="lablog"></pre>
 </main>
 <script type="module">
 import { labLog, labFetch, watchMedia, efg } from "./lab.js";
-labLog("aucune requête média : ouvrez le panneau puis cliquez sur « Forcer la détection »", "warn");
+labLog("no media request: open the panel, then click “Force detection”", "warn");
 </script>
 </body>
 </html>

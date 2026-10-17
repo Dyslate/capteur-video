@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Journal · Capteur vidéo</title>
+  <title>Log · Capteur vidéo</title>
   <link rel="stylesheet" href="panel.css">
   <style>
     body { display: block; }
@@ -26,27 +26,27 @@
 </head>
 <body>
   <main class="doc">
-    <h1>Journal de diagnostic</h1>
-    <p class="muted">Tout ce que l'extension a détecté, ignoré, téléchargé ou raté depuis le démarrage de Chrome. En cas de problème, cliquez sur « Copier » et collez le journal dans votre message.</p>
+    <h1>Diagnostic log</h1>
+    <p class="muted">Everything the extension detected, ignored, downloaded or failed since Chrome started. If something goes wrong, click “Copy” and paste the log into your message.</p>
 
     <div class="toolbar">
-      <select id="level" aria-label="Niveau">
-        <option value="debug">Tout (détails compris)</option>
-        <option value="info" selected>Infos, avertissements, erreurs</option>
-        <option value="warn">Avertissements et erreurs</option>
-        <option value="error">Erreurs seulement</option>
+      <select id="level" aria-label="Level">
+        <option value="debug">Everything (including details)</option>
+        <option value="info" selected>Info, warnings, errors</option>
+        <option value="warn">Warnings and errors</option>
+        <option value="error">Errors only</option>
       </select>
-      <input id="filter" type="search" placeholder="Filtrer (ex. tâche 3, sonde, instagram…)" aria-label="Filtrer">
-      <button id="copy">Copier</button>
-      <button id="export" class="ghost">Exporter (.txt)</button>
-      <button id="clear" class="ghost">Effacer</button>
+      <input id="filter" type="search" placeholder="Filter (e.g. job 3, probe, instagram…)" aria-label="Filter">
+      <button id="copy">Copy</button>
+      <button id="export" class="ghost">Export (.txt)</button>
+      <button id="clear" class="ghost">Clear</button>
     </div>
     <p id="count" class="note"></p>
     <div id="entries"></div>
 
-    <h2>Journal du module local</h2>
-    <p class="muted" id="helper-path">Fin du fichier helper.log (yt-dlp détaillé).</p>
-    <div class="row"><button id="helper-refresh" class="ghost">Actualiser</button></div>
+    <h2>Local helper log</h2>
+    <p class="muted" id="helper-path">End of helper.log (detailed yt-dlp output).</p>
+    <div class="row"><button id="helper-refresh" class="ghost">Refresh</button></div>
     <pre id="helper-log">…</pre>
   </main>
   <script type="module" src="log.js"></script>

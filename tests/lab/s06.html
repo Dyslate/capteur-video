@@ -1,24 +1,24 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Lab 06 · Pistes séparées (style Instagram)</title>
+  <title>Lab 06 · Split tracks (Instagram style)</title>
   <link rel="stylesheet" href="lab.css">
 </head>
 <body>
 <main>
-  <div class="crumb"><a href="index.html">← Labo de test</a></div>
-  <h1><span class="num">06</span> Pistes séparées (style Instagram)</h1>
-  <p class="muted">Comme sur Instagram : la vidéo et le son sont deux fichiers distincts, demandés par morceaux avec <code>bytestart</code>/<code>byteend</code> et identifiés par un paramètre <code>efg</code>.</p>
+  <div class="crumb"><a href="index.html">← Test lab</a></div>
+  <h1><span class="num">06</span> Split tracks (Instagram style)</h1>
+  <p class="muted">Like on Instagram: video and sound are two separate files, requested in chunks with <code>bytestart</code>/<code>byteend</code> and identified by an <code>efg</code> parameter.</p>
   
-  <h2>Résultat attendu dans le panneau</h2>
+  <h2>Expected in the panel</h2>
   <ul class="expect">
-    <li>Une seule carte « Vidéo » : les deux pistes sont appariées (journal : « pistes appariées · identifiant (efg) »).</li>
-    <li>MP4 : un fichier avec l'image ET le son.</li>
-    <li>MP4 sans le son, M4A, MP3, WAV : dans le navigateur.</li>
+    <li>A single “Video” card: both tracks are paired (log: “tracks paired · asset id (efg)”).</li>
+    <li>MP4: one file with picture AND sound.</li>
+    <li>MP4 without sound, M4A, MP3, WAV: in the browser.</li>
   </ul>
-  <h2>Journal de la page</h2>
+  <h2>Page log</h2>
   <pre id="lablog"></pre>
 </main>
 <script type="module">

@@ -1,25 +1,25 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Lab 01 · MP4 direct</title>
+  <title>Lab 01 · Direct MP4</title>
   <link rel="stylesheet" href="lab.css">
 </head>
 <body>
 <main>
-  <div class="crumb"><a href="index.html">← Labo de test</a></div>
-  <h1><span class="num">01</span> MP4 direct</h1>
-  <p class="muted">Un fichier MP4 complet (H.264 + AAC, 1280×720, 8 s) lu par une balise &lt;video&gt;.</p>
+  <div class="crumb"><a href="index.html">← Test lab</a></div>
+  <h1><span class="num">01</span> Direct MP4</h1>
+  <p class="muted">A complete MP4 file (H.264 + AAC, 1280×720, 8 s) played by a &lt;video&gt; element.</p>
   <video id="v" src="media/direct.mp4" controls muted autoplay></video>
-  <h2>Résultat attendu dans le panneau</h2>
+  <h2>Expected in the panel</h2>
   <ul class="expect">
-    <li>Une carte « Vidéo » · 0:08 · 2 Mo environ.</li>
-    <li>MP4 : envoyé tel quel aux téléchargements de Chrome.</li>
-    <li>MP3 / WAV : conversion dans le navigateur (Chrome).</li>
-    <li>M4A, MKV, Opus, FLAC : via le module local (s'il est installé).</li>
+    <li>One “Video” card · 0:08 · about 2 MB.</li>
+    <li>MP4: sent as is to Chrome's downloads.</li>
+    <li>MP3 / WAV: converted in the browser.</li>
+    <li>M4A, MKV, Opus, FLAC: through the local helper (if installed).</li>
   </ul>
-  <h2>Journal de la page</h2>
+  <h2>Page log</h2>
   <pre id="lablog"></pre>
 </main>
 <script type="module">

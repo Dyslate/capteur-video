@@ -85,15 +85,15 @@ async function refresh() {
 
   if (!isWeb) {
     renderMedias([]);
-    return showState("Ouvrez une page web", "Le panneau détecte les vidéos des pages que vous visitez.", { waiting: false });
+    return showState("Open a web page", "The panel detects the videos on the pages you visit.", { waiting: false });
   }
   if (service) {
     renderMedias([]);
     return showState(
-      `${service} n'est pas pris en charge`,
+      `${service} is not supported`,
       isDrmService(url)
-        ? "Ses vidéos sont protégées par DRM : aucun outil ne peut les télécharger légalement."
-        : "Ce site est exclu de la version Chrome Web Store.",
+        ? "Its videos are DRM-protected: no tool can legally download them."
+        : "This site is excluded from the Chrome Web Store version.",
       { waiting: false }
     );
   }
@@ -106,17 +106,17 @@ async function refresh() {
   const [medias, helper] = await Promise.all([buildMedias(items), useHelper ? pingHelper() : null]);
   if (token !== state.refreshToken) return;
   state.helper = helper;
-  ulog.info(`onglet analysé : ${items.length} élément(s) brut(s) → ${medias.length} carte(s)`, {
+  ulog.info(`tab analysed: ${items.length} raw item(s) → ${medias.length} card(s)`, {
     url,
     title: tab.title,
-    helper: helper ? (helper.ok ? { ytdlp: helper.ytdlp, ffmpeg: helper.ffmpeg, js: helper.jsRuntime } : { error: helper.error }) : "désactivé",
+    helper: helper ? (helper.ok ? { ytdlp: helper.ytdlp, ffmpeg: helper.ffmpeg, js: helper.jsRuntime } : { error: helper.error }) : "disabled",
     medias: medias.map((m) => ({ kind: m.kind, title: m.title, variants: m.variants?.length || 0, protected: !!m.protected })),
   });
   renderMedias(medias, { pageCard: useHelper ? pageCard(tab, helper, onlyHelper) : null, pageCardFirst: onlyHelper });
   if (!medias.length && !onlyHelper) {
     showState(
-      "En attente de médias…",
-      "Lancez la lecture de la vidéo, avec le son, puis revenez ici. Sinon, essayez « Forcer la détection »" + (useHelper ? " ou le module yt-dlp ci-dessous." : ".")
+      "Waiting for media…",
+      "Play the video with the sound on, then come back here. Otherwise, try “Force detection”" + (useHelper ? " or the yt-dlp helper below." : ".")
     );
   } else {
     $("state").hidden = true;
@@ -125,23 +125,23 @@ async function refresh() {
 
 // Card that sends the whole page to the local yt-dlp helper.
 function pageCard(tab, helper, onlyHelper) {
-  const title = onlyHelper ? "Cette vidéo YouTube" : "Toute la page avec yt-dlp";
-  const sub = onlyHelper ? "Via le module local yt-dlp" : "Secours : fonctionne sur des milliers de sites";
+  const title = onlyHelper ? "This YouTube video" : "Whole page with yt-dlp";
+  const sub = onlyHelper ? "Through the local yt-dlp helper" : "Fallback: works on thousands of sites";
   if (!helper?.ok) {
     return el(
       "article",
       { class: "card helper" },
-      el("div", { class: "card-head" }, el("strong", {}, title), el("span", { class: "badge" }, "Module")),
+      el("div", { class: "card-head" }, el("strong", {}, title), el("span", { class: "badge" }, "Helper")),
       el("div", { class: "sub" }, sub),
-      el("p", { class: "note" }, `${helper?.error || "Module local non installé"}. Il s'installe une seule fois, en deux minutes.`),
+      el("p", { class: "note" }, `${helper?.error || "Local helper not installed"}. It is a one-time, two-minute install.`),
       el("div", { class: "row" },
-        el("button", { class: onlyHelper ? "" : "ghost", onclick: () => chrome.tabs.create({ url: chrome.runtime.getURL("help.html") }) }, "Installer le module"),
-        el("button", { class: "ghost", onclick: async () => { await pingHelper({ force: true }); scheduleRefresh(0); } }, "Revérifier"))
+        el("button", { class: onlyHelper ? "" : "ghost", onclick: () => chrome.tabs.create({ url: chrome.runtime.getURL("help.html") }) }, "Install the helper"),
+        el("button", { class: "ghost", onclick: async () => { await pingHelper({ force: true }); scheduleRefresh(0); } }, "Check again"))
     );
   }
   const warnings = [];
-  if (onlyHelper && !helper.jsRuntime) warnings.push("YouTube demande Deno : voir l'aide pour l'installer.");
-  if (!helper.ffmpeg) warnings.push("ffmpeg introuvable : conversions et fusion audio/vidéo indisponibles.");
+  if (onlyHelper && !helper.jsRuntime) warnings.push("YouTube needs Deno: see the help page to install it.");
+  if (!helper.ffmpeg) warnings.push("ffmpeg not found: conversions and audio/video merging are unavailable.");
   const media = { pageOnly: true, key: tab.url };
   return el(
     "article",
@@ -177,7 +177,7 @@ function videoChoices(media, engine) {
     const heights = [...new Set(variants.map((v) => v.height).filter(Boolean))];
     return heights.length > 1 ? heights.map((h) => ({ value: String(h), label: `${h}p` })) : [];
   }
-  return variants.length > 1 ? variants.map((v, i) => ({ value: String(i), label: v.label || `Qualité ${i + 1}` })) : [];
+  return variants.length > 1 ? variants.map((v, i) => ({ value: String(i), label: v.label || `Quality ${i + 1}` })) : [];
 }
 
 // Format + quality selects and a download button, shared by every card.
@@ -187,19 +187,19 @@ function optionsRow(media, { primary = true } = {}) {
     // Module-only formats are listed (disabled) when the module is missing, so people know they exist.
     .filter(({ f, engine }) => engine || (BUILD !== "store" && f.engine === "helper" && !media.pageOnly && !(media.audioOnly && f.group === "video")));
   const usable = options.filter((o) => o.engine);
-  if (!usable.length) return el("p", { class: "note" }, "Aucun format disponible pour ce média.");
+  if (!usable.length) return el("p", { class: "note" }, "No format available for this media.");
 
   const group = (name, label) => {
     const items = options.filter((o) => o.f.group === name);
     if (!items.length) return null;
     return el("optgroup", { label }, items.map(({ f, engine }) =>
-      el("option", { value: f.id, disabled: !engine }, f.label + (engine === "helper" && f.engine !== "helper" ? " · module" : "") + (!engine ? " (module requis)" : ""))));
+      el("option", { value: f.id, disabled: !engine }, f.label + (engine === "helper" && f.engine !== "helper" ? " · helper" : "") + (!engine ? " (helper required)" : ""))));
   };
-  const format = el("select", { "aria-label": "Format", class: "format" }, group("video", "Vidéo"), group("audio", "Audio"));
+  const format = el("select", { "aria-label": "Format", class: "format" }, group("video", "Video"), group("audio", "Audio"));
   const saved = remembered("format");
   format.value = usable.some((o) => o.f.id === saved) ? saved : usable[0].f.id;
 
-  const quality = el("select", { "aria-label": "Qualité", class: "quality" });
+  const quality = el("select", { "aria-label": "Quality", class: "quality" });
   const engineOf = () => usable.find((o) => o.f.id === format.value)?.engine;
   const fill = () => {
     const engine = engineOf();
@@ -219,7 +219,7 @@ function optionsRow(media, { primary = true } = {}) {
   const go = el("button", {
     class: primary ? "" : "ghost",
     onclick: () => download(media, { format: format.value, engine: engineOf(), quality: quality.hidden ? "" : quality.value }),
-  }, "Télécharger");
+  }, "Download");
   return el("div", { class: "row options" }, format, quality, go);
 }
 
@@ -235,7 +235,7 @@ function helperUrlFor(media) {
 
 function download(media, { format, engine, quality }) {
   const f = formatById(format);
-  if (!f || !engine) return toast("Format indisponible");
+  if (!f || !engine) return toast("Format unavailable");
   if (engine === "helper") {
     const isVideo = f.group === "video";
     startHelperJob({
@@ -247,7 +247,7 @@ function download(media, { format, engine, quality }) {
       referer: state.tab?.url,
       title: U.cleanTitle(state.tab?.title),
     });
-    return toast("Téléchargement confié au module");
+    return toast("Download handed to the helper");
   }
   const variant = f.group === "video" && quality !== "" ? media.variants[Number(quality)] || media.variants[0] : media.variants[0];
   startJob(media, variant, { format, kbps: f.bitrates ? Number(quality) || f.defaultBitrate : null });
@@ -283,15 +283,15 @@ async function buildMedias(items) {
       continue;
     }
     const pl = res.pl;
-    alog.info(`HLS ${pl.type === "master" ? "maître" : "média"}`, pl.type === "master"
+    alog.info(`HLS ${pl.type === "master" ? "master" : "media"} playlist`, pl.type === "master"
       ? { url: it.url, variants: pl.variants.map((v) => `${v.height || "?"}p ${v.bandwidth}`), audio: pl.audio.length, encrypted: pl.encrypted }
       : { url: it.url, segments: pl.segments.length, duration: pl.duration, live: pl.live, encrypted: pl.encrypted });
     if (pl.type === "media" && referenced.has(stripQuery(it.url))) {
-      alog.debug("sous-playlist masquée (déjà dans une playlist maître)", { url: it.url });
+      alog.debug("sub-playlist hidden (already listed by a master playlist)", { url: it.url });
       continue;
     }
     if (pl.encrypted) {
-      medias.push({ key: it.url, kind: "hls", title: "Flux protégé", host: U.hostOf(it.url), protected: true, variants: [] });
+      medias.push({ key: it.url, kind: "hls", title: "Protected stream", host: U.hostOf(it.url), protected: true, variants: [] });
       continue;
     }
     if (pl.type === "master") {
@@ -299,20 +299,20 @@ async function buildMedias(items) {
         const audio = v.audioGroup ? pl.audio.find((a) => a.group === v.audioGroup && a.isDefault) || pl.audio.find((a) => a.group === v.audioGroup) : null;
         return {
           height: v.height,
-          label: U.qualityLabel(v.height, v.bandwidth) || "Qualité par défaut",
+          label: U.qualityLabel(v.height, v.bandwidth) || "Default quality",
           video: { type: "hls", url: v.url },
           audio: audio ? { type: "hls", url: audio.url } : null,
         };
       });
-      medias.push({ key: it.url, kind: "hls", title: "Flux HLS", host: U.hostOf(it.url), variants });
+      medias.push({ key: it.url, kind: "hls", title: "HLS stream", host: U.hostOf(it.url), variants });
     } else {
       medias.push({
         key: it.url,
         kind: "hls",
-        title: pl.live ? "Flux HLS en direct" : "Flux HLS",
-        meta: pl.live ? "direct" : U.formatDuration(pl.duration),
+        title: pl.live ? "Live HLS stream" : "HLS stream",
+        meta: pl.live ? "live" : U.formatDuration(pl.duration),
         host: U.hostOf(it.url),
-        variants: [{ label: "Qualité unique", video: { type: "segments", segments: pl.segments }, audio: null }],
+        variants: [{ label: "Single quality", video: { type: "segments", segments: pl.segments }, audio: null }],
       });
     }
   }
@@ -328,14 +328,14 @@ async function buildMedias(items) {
       continue;
     }
     const mpd = res.mpd;
-    alog.info("DASH analysé", {
+    alog.info("DASH manifest parsed", {
       url: it.url, inline: !!it.mpd, encrypted: mpd.encrypted, live: mpd.live, duration: mpd.duration,
       video: mpd.video.map((v) => `${v.height}p ${v.bandwidth} (${v.segments.length} seg.)`),
       audio: mpd.audio.map((a) => `${a.bandwidth} (${a.segments.length} seg.)`),
     });
     const host = U.hostOf(it.base || it.url);
     if (mpd.encrypted) {
-      medias.push({ key: it.url, kind: "dash", title: "Flux protégé", host, protected: true, variants: [] });
+      medias.push({ key: it.url, kind: "dash", title: "Protected stream", host, protected: true, variants: [] });
       continue;
     }
     const bestAudio = mpd.audio[0] ? { type: "segments", segments: mpd.audio[0].segments } : null;
@@ -344,15 +344,15 @@ async function buildMedias(items) {
     for (const v of mpd.video) {
       if (seen.has(v.height)) continue;
       seen.add(v.height);
-      variants.push({ height: v.height, label: U.qualityLabel(v.height, v.bandwidth) || "Vidéo", video: { type: "segments", segments: v.segments }, audio: bestAudio });
+      variants.push({ height: v.height, label: U.qualityLabel(v.height, v.bandwidth) || "Video", video: { type: "segments", segments: v.segments }, audio: bestAudio });
     }
     if (!variants.length && bestAudio) variants.push({ label: "Audio", video: null, audio: bestAudio });
     if (!variants.length) continue;
     medias.push({
       key: it.url,
       kind: "dash",
-      title: it.kind === "dash-inline" ? "Vidéo de la page" : "Flux DASH",
-      meta: mpd.live ? "direct" : mpd.duration ? U.formatDuration(mpd.duration) : "",
+      title: it.kind === "dash-inline" ? "Video from the page" : "DASH stream",
+      meta: mpd.live ? "live" : mpd.duration ? U.formatDuration(mpd.duration) : "",
       host,
       variants,
       audioOnly: !mpd.video.length,
@@ -398,7 +398,7 @@ async function mediasFromFiles(files) {
       medias.push({
         key: f.url,
         kind: "file",
-        title: isAudio ? "Audio" : "Vidéo",
+        title: isAudio ? "Audio" : "Video",
         meta: [p.height ? `${p.height}p` : "", p.seconds ? U.formatDuration(p.seconds) : "", U.formatBytes(f.size)].filter(Boolean).join(" · "),
         host: U.hostOf(f.url),
         audioOnly: isAudio,
@@ -429,8 +429,8 @@ async function mediasFromFiles(files) {
         .find((x) => Math.abs(x.f.time - g.time) < 15000);
     }
     if (a) usedAudio.add(a);
-    alog.info(a ? "pistes appariées" : "vidéo sans piste audio trouvée", {
-      by: a ? (g.asset && a.f.asset === g.asset ? "identifiant (efg)" : "proximité temporelle") : null,
+    alog.info(a ? "tracks paired" : "video without a matching audio track", {
+      by: a ? (g.asset && a.f.asset === g.asset ? "asset id (efg)" : "time proximity") : null,
       asset: g.asset ?? null,
       videos: g.videos.map((v) => v.f.url),
       audio: a?.f.url || null,
@@ -445,13 +445,13 @@ async function mediasFromFiles(files) {
     medias.push({
       key: vids[0].f.url,
       kind: "file",
-      title: "Vidéo",
+      title: "Video",
       meta: [seconds ? U.formatDuration(seconds) : ""].filter(Boolean).join(" · "),
       host: U.hostOf(vids[0].f.url),
       noAudio: !audio,
       variants: vids.map((v) => ({
         height: v.p.height,
-        label: [v.p.height ? `${v.p.height}p` : "", U.formatBytes(v.f.size)].filter(Boolean).join(" · ") || "Vidéo",
+        label: [v.p.height ? `${v.p.height}p` : "", U.formatBytes(v.f.size)].filter(Boolean).join(" · ") || "Video",
         video: { type: "file", url: v.f.url, size: v.f.size },
         audio,
       })),
@@ -462,7 +462,7 @@ async function mediasFromFiles(files) {
     medias.push({
       key: a.f.url,
       kind: "file",
-      title: "Audio seul",
+      title: "Audio only",
       meta: [a.p.seconds ? U.formatDuration(a.p.seconds) : "", U.formatBytes(a.f.size)].filter(Boolean).join(" · "),
       host: U.hostOf(a.f.url),
       audioOnly: true,
@@ -488,7 +488,7 @@ function mediaCard(m) {
       { class: "card protected" },
       el("div", { class: "card-head" }, el("strong", {}, m.title), el("span", { class: "badge" }, "DRM")),
       el("div", { class: "sub" }, m.host),
-      el("p", { class: "note" }, "Contenu protégé : il n'est pas téléchargeable.")
+      el("p", { class: "note" }, "Protected content: it cannot be downloaded.")
     );
   }
   return el(
@@ -497,7 +497,7 @@ function mediaCard(m) {
     el("div", { class: "card-head" }, el("strong", {}, m.title), m.meta ? el("span", { class: "meta" }, m.meta) : null),
     el("div", { class: "sub", title: m.key }, m.host),
     optionsRow(m),
-    m.noAudio ? el("p", { class: "note" }, "Aucune piste audio trouvée : relancez la lecture avec le son activé.") : null
+    m.noAudio ? el("p", { class: "note" }, "No audio track found: play the video again with the sound on.") : null
   );
 }
 
@@ -511,7 +511,7 @@ state.helperJobs = [];
 function helperJobView(h) {
   return {
     ...h,
-    badge: (formatById(h.format)?.label.split(" ")[0] || (h.mode === "mp3" ? "MP3" : "Vidéo")) + (h.abr ? ` · ${h.abr}k` : h.quality ? ` · ${h.quality}p` : "") + " · yt-dlp",
+    badge: (formatById(h.format)?.label.split(" ")[0] || (h.mode === "mp3" ? "MP3" : "Video")) + (h.abr ? ` · ${h.abr}k` : h.quality ? ` · ${h.quality}p` : "") + " · yt-dlp",
     cancel: () => cancelHelperJob(h.id),
     reveal: h.file ? () => revealFile(h.file) : null,
   };
@@ -526,15 +526,15 @@ function renderJobs() {
       const cls = ["card", "job", j.done ? "done" : "", j.error ? "failed" : ""].join(" ");
       const jobId = typeof j.id === "number" ? "local-" + j.id : String(j.id); // for tests and the log
       const actions = [];
-      if (!j.done && !j.error) actions.push(el("button", { class: "ghost", onclick: () => (j.cancel ? j.cancel() : j.controller.abort()) }, "Annuler"));
-      if (j.done && j.downloadId != null) actions.push(el("button", { class: "ghost", onclick: () => chrome.downloads.show(j.downloadId) }, "Afficher le fichier"));
-      if (j.done && j.reveal) actions.push(el("button", { class: "ghost", onclick: j.reveal }, "Afficher le fichier"));
+      if (!j.done && !j.error) actions.push(el("button", { class: "ghost", onclick: () => (j.cancel ? j.cancel() : j.controller.abort()) }, "Cancel"));
+      if (j.done && j.downloadId != null) actions.push(el("button", { class: "ghost", onclick: () => chrome.downloads.show(j.downloadId) }, "Show file"));
+      if (j.done && j.reveal) actions.push(el("button", { class: "ghost", onclick: j.reveal }, "Show file"));
       return el(
         "article",
         { class: cls, "data-job": jobId },
         el("div", { class: "card-head" }, el("strong", {}, j.title), el("span", { class: "badge" }, j.badge)),
         j.done || j.error ? null : el("div", { class: "bar" + (pct == null ? " indeterminate" : "") }, el("div", { style: pct == null ? null : `width:${pct}%` })),
-        el("div", { class: "status" }, j.error ? "Erreur : " + j.error : j.status),
+        el("div", { class: "status" }, j.error ? "Error: " + j.error : j.status),
         actions.length ? el("div", { class: "row" }, ...actions) : null
       );
     })
@@ -551,14 +551,14 @@ async function fetchSource(src, job, from, to) {
   if (src.type === "hls") {
     let pl = parseHls(await fetchText(src.url, job.controller.signal), src.url);
     if (pl.type === "master") pl = parseHls(await fetchText(pl.variants[0].url, job.controller.signal), pl.variants[0].url);
-    if (pl.encrypted) throw new Error("Flux chiffré : non pris en charge");
+    if (pl.encrypted) throw new Error("Encrypted stream: not supported");
     segments = pl.segments;
   } else if (src.type === "segments") {
     segments = src.segments;
   } else {
     segments = [{ url: src.url, range: null }];
   }
-  job.log.info(`source ${src.type} : ${segments.length} requête(s)`, { first: segments[0]?.url, size: src.size ?? null });
+  job.log.info(`source ${src.type}: ${segments.length} request(s)`, { first: segments[0]?.url, size: src.size ?? null });
   const t0 = performance.now();
   let quarter = -1;
   const data = await fetchSegments(segments, {
@@ -567,19 +567,19 @@ async function fetchSource(src, job, from, to) {
       const f = frac ?? (src.size ? Math.min(1, bytes / src.size) : null);
       if (f != null && Math.floor(f * 4) !== quarter) {
         quarter = Math.floor(f * 4);
-        job.log.debug(`progression ${Math.round(f * 100)} %`, { bytes });
+        job.log.debug(`progress ${Math.round(f * 100)}%`, { bytes });
       }
-      update(job, { progress: f == null ? null : from + f * (to - from), status: `Téléchargement… ${U.formatBytes(bytes)}` });
+      update(job, { progress: f == null ? null : from + f * (to - from), status: `Downloading… ${U.formatBytes(bytes)}` });
     },
   });
-  job.log.info(`source reçue : ${U.formatBytes(data.length)} en ${Math.round(performance.now() - t0)} ms`, { container: sniff(data) });
+  job.log.info(`source received: ${U.formatBytes(data.length)} in ${Math.round(performance.now() - t0)} ms`, { container: sniff(data) });
   return data;
 }
 
 async function save(job, blob, ext) {
   const blobUrl = URL.createObjectURL(blob);
   const { id, filename } = await U.download(blobUrl, job.name, ext);
-  job.log.info(`enregistré : ${filename}`, { bytes: blob.size, type: blob.type, downloadId: id });
+  job.log.info(`saved: ${filename}`, { bytes: blob.size, type: blob.type, downloadId: id });
   const onChange = (d) => {
     if (d.id === id && d.state && d.state.current !== "in_progress") {
       URL.revokeObjectURL(blobUrl);
@@ -587,7 +587,7 @@ async function save(job, blob, ext) {
     }
   };
   chrome.downloads.onChanged.addListener(onChange);
-  update(job, { done: true, progress: 1, downloadId: id, status: `Enregistré : ${filename} (${U.formatBytes(blob.size)})` });
+  update(job, { done: true, progress: 1, downloadId: id, status: `Saved: ${filename} (${U.formatBytes(blob.size)})` });
 }
 
 async function jobVideo(job, v, { silent = false } = {}) {
@@ -595,49 +595,49 @@ async function jobVideo(job, v, { silent = false } = {}) {
   // Complete file that needs no processing: let Chrome download it directly.
   if (v.video.direct && !audioSrc) {
     const { id, filename } = await U.download(v.video.url, job.name, v.video.ext || "mp4");
-    return update(job, { done: true, downloadId: id, status: `Envoyé aux téléchargements : ${filename}` });
+    return update(job, { done: true, downloadId: id, status: `Sent to Chrome downloads: ${filename}` });
   }
   const video = await fetchSource(v.video, job, 0, audioSrc ? 0.8 : 0.95);
   const vType = sniff(video);
-  job.log.debug("conteneur vidéo détecté : " + vType);
+  job.log.debug("video container detected: " + vType);
   if (!audioSrc) {
     const ext = vType === "ts" ? "ts" : vType === "webm" ? "webm" : "mp4";
     return save(job, new Blob([video], { type: ext === "ts" ? "video/mp2t" : `video/${ext}` }), ext);
   }
   const audio = await fetchSource(audioSrc, job, 0.8, 0.95);
   if (vType === "mp4" && sniff(audio) === "mp4") {
-    update(job, { progress: null, status: "Assemblage de la vidéo et du son…" });
+    update(job, { progress: null, status: "Merging video and sound…" });
     await new Promise((r) => setTimeout(r, 30));
-    job.log.info("fusion audio + vidéo", { video: video.length, audio: audio.length, probeVideo: probe(video), probeAudio: probe(audio) });
+    job.log.info("merging audio + video", { video: video.length, audio: audio.length, probeVideo: probe(video), probeAudio: probe(audio) });
     const t0 = performance.now();
     const merged = mux(video, audio);
-    job.log.info(`fusion terminée en ${Math.round(performance.now() - t0)} ms`, { bytes: merged.length, result: probe(merged) });
+    job.log.info(`merge done in ${Math.round(performance.now() - t0)} ms`, { bytes: merged.length, result: probe(merged) });
     return save(job, new Blob([merged], { type: "video/mp4" }), "mp4");
   }
   // Formats we cannot mux (TS): save two files.
   await save(job, new Blob([video], { type: "video/mp2t" }), vType === "ts" ? "ts" : "mp4");
   await U.download(URL.createObjectURL(new Blob([audio])), job.name + " (audio)", sniff(audio) === "aac" ? "aac" : sniff(audio) || "m4a");
-  update(job, { status: job.status + " — piste audio enregistrée à part" });
+  update(job, { status: job.status + " — audio track saved separately" });
 }
 
 // Decodes the audio in the browser, then encodes it as MP3 or WAV.
 async function jobAudioEncode(job, v, { format, kbps }) {
   const src = v.audio || v.video;
   const bytes = await fetchSource(src, job, 0, 0.5);
-  update(job, { progress: 0.5, status: "Décodage de l'audio…" });
-  job.log.info("décodage de l'audio par le navigateur", { container: sniff(bytes), bytes: bytes.length });
+  update(job, { progress: 0.5, status: "Decoding the audio…" });
+  job.log.info("decoding the audio in the browser", { container: sniff(bytes), bytes: bytes.length });
   const audio = await decodeAudio(bytes);
-  job.log.info("audio décodé", { seconds: audio.duration, channels: audio.numberOfChannels, sampleRate: audio.sampleRate });
+  job.log.info("audio decoded", { seconds: audio.duration, channels: audio.numberOfChannels, sampleRate: audio.sampleRate });
   if (format === "wav") {
-    update(job, { progress: 0.9, status: "Création du WAV…" });
+    update(job, { progress: 0.9, status: "Writing the WAV…" });
     return save(job, encodeWav(audio), "wav");
   }
-  update(job, { progress: 0.55, status: "Conversion en MP3…" });
+  update(job, { progress: 0.55, status: "Converting to MP3…" });
   const blob = await encodeMp3(audio, {
     title: job.name,
     kbps: kbps || 192,
     signal: job.controller.signal,
-    onProgress: (p) => update(job, { progress: 0.55 + p * 0.45, status: `Conversion en MP3 (${kbps || 192} kb/s)… ${Math.round(p * 100)} %` }),
+    onProgress: (p) => update(job, { progress: 0.55 + p * 0.45, status: `Converting to MP3 (${kbps || 192} kb/s)… ${Math.round(p * 100)}%` }),
   });
   return save(job, blob, "mp3");
 }
@@ -666,12 +666,12 @@ async function startJob(media, variant, { format, kbps }) {
     name: U.cleanTitle(state.tab?.title),
     title: U.cleanTitle(state.tab?.title),
     badge: f.label.split(" ")[0] + (kbps ? ` · ${kbps}k` : ""),
-    status: "Préparation…",
+    status: "Preparing…",
     progress: null,
     controller: new AbortController(),
   };
-  job.log = log.scope("tâche " + job.id);
-  job.log.info(`démarrage : ${format}${kbps ? " " + kbps + " kb/s" : ""}`, {
+  job.log = log.scope("job " + job.id);
+  job.log.info(`start: ${format}${kbps ? " " + kbps + " kb/s" : ""}`, {
     media: media.kind,
     variant: variant?.label || null,
     video: variant?.video ? { type: variant.video.type, url: variant.video.url || variant.video.segments?.[0]?.url } : null,
@@ -685,7 +685,7 @@ async function startJob(media, variant, { format, kbps }) {
       case "mp4":
         return jobVideo(job, variant);
       case "mp4-silent":
-        job.name += " (sans son)";
+        job.name += " (no sound)";
         return jobVideo(job, variant, { silent: true });
       case "m4a":
         return jobAudio(job, variant);
@@ -693,15 +693,15 @@ async function startJob(media, variant, { format, kbps }) {
       case "wav":
         return jobAudioEncode(job, variant, { format, kbps });
       default:
-        throw new Error("Format non géré par le navigateur");
+        throw new Error("Format not handled by the browser");
     }
   };
   try {
     await withReferer(page, urlsOf(variant), run);
   } catch (e) {
-    if (e.name === "AbortError") job.log.warn("annulé");
-    else job.log.error("échec : " + e.message, e);
-    update(job, { error: e.name === "AbortError" ? "téléchargement annulé" : e.message });
+    if (e.name === "AbortError") job.log.warn("cancelled");
+    else job.log.error("failed: " + e.message, e);
+    update(job, { error: e.name === "AbortError" ? "download cancelled" : e.message });
   }
 }
 
@@ -713,15 +713,15 @@ $("scan").addEventListener("click", async () => {
   $("scan").disabled = true;
   try {
     const results = await chrome.scripting.executeScript({ target: { tabId: tab.id, allFrames: true }, func: scanPage });
-    ulog.info(`« Forcer la détection » : ${results.length} cadre(s) analysé(s)`, results.map((r) => ({
+    ulog.info(`“Force detection”: ${results.length} frame(s) scanned`, results.map((r) => ({
       frame: r.frameId, url: r.result?.url, found: (r.result?.items || []).map((i) => `${i.kind} ${i.from} ${i.url.slice(0, 120)}`),
     })));
     const items = results.flatMap((r) => r.result?.items || []);
     const res = await chrome.runtime.sendMessage({ type: "add-items", tabId: tab.id, items });
-    toast(items.length ? `${res?.added ?? items.length} élément(s) analysé(s)` : "Rien trouvé dans la page");
+    toast(items.length ? `${res?.added ?? items.length} item(s) analysed` : "Nothing found on the page");
   } catch (e) {
-    ulog.error("« Forcer la détection » a échoué", e);
-    toast("Analyse impossible sur cette page");
+    ulog.error("“Force detection” failed", e);
+    toast("This page cannot be scanned");
   } finally {
     $("scan").disabled = false;
     scheduleRefresh(0);

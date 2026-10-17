@@ -100,7 +100,7 @@ test("formats: engine choice and qualities", () => {
 
   assert.deepEqual(qualitiesFor("mp3", "browser").map((q) => q.value), ["192", "320", "256", "128"]);
   assert.deepEqual(qualitiesFor("wav", "browser"), []);
-  assert.equal(qualitiesFor("mp4", "helper")[0].label, "Meilleure qualité");
+  assert.equal(qualitiesFor("mp4", "helper")[0].label, "Best quality");
   assert.deepEqual(qualitiesFor("mp4", "browser", [{ value: "0", label: "720p" }]), [{ value: "0", label: "720p" }]);
   assert.deepEqual(qualitiesFor("mp4", "browser"), []);
 });

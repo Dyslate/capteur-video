@@ -1,24 +1,24 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Lab 10 · Page pour le module yt-dlp</title>
+  <title>Lab 10 · Page for the yt-dlp helper</title>
   <link rel="stylesheet" href="lab.css">
 </head>
 <body>
 <main>
-  <div class="crumb"><a href="index.html">← Labo de test</a></div>
-  <h1><span class="num">10</span> Page pour le module yt-dlp</h1>
-  <p class="muted">Une page classique avec une vidéo : sert à tester la carte « Toute la page avec yt-dlp ».</p>
+  <div class="crumb"><a href="index.html">← Test lab</a></div>
+  <h1><span class="num">10</span> Page for the yt-dlp helper</h1>
+  <p class="muted">A regular page with a video: used to test the “Whole page with yt-dlp” card.</p>
   <video id="v" src="media/direct.mp4" controls muted></video>
-  <h2>Résultat attendu dans le panneau</h2>
+  <h2>Expected in the panel</h2>
   <ul class="expect">
-    <li>La carte « Toute la page avec yt-dlp » (module installé).</li>
-    <li>MKV, MP4, MP3, M4A, Opus, FLAC, WAV : fichiers dans Téléchargements/Capteur video.</li>
-    <li>La qualité « 360p max » doit donner une vidéo de 360 lignes au plus.</li>
+    <li>The “Whole page with yt-dlp” card (helper installed).</li>
+    <li>MKV, MP4, MP3, M4A, Opus, FLAC, WAV: files in Downloads/Capteur video.</li>
+    <li>The “360p max” quality must give a video of at most 360 lines.</li>
   </ul>
-  <h2>Journal de la page</h2>
+  <h2>Page log</h2>
   <pre id="lablog"></pre>
 </main>
 <script type="module">

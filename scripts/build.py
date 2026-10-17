@@ -40,7 +40,7 @@ def build(flavour):
     if flavour == "store":
         manifest.pop("key", None)
         manifest["permissions"] = [p for p in manifest["permissions"] if p != "nativeMessaging"]
-        manifest["description"] = "Détecte les vidéos des pages que vous visitez et les enregistre en MP4 ou en MP3 (Instagram, Facebook, Vimeo et la plupart des sites)."
+        manifest["description"] = "Detects the videos on the pages you visit and saves them as MP4, MP3 and more (Instagram, Facebook, Vimeo and most sites)."
 
     os.makedirs(DIST, exist_ok=True)
     out = os.path.join(DIST, "capteur-video-%s-%s.zip" % (flavour, version))

@@ -216,14 +216,14 @@ def cmd_download(msg):
     url = msg.get("url") or ""
     mode = msg.get("mode", "video")
     if not url.startswith(("http://", "https://")):
-        return send({"type": "error", "message": "Adresse invalide"})
+        return send({"type": "error", "message": "Invalid URL"})
     if is_drm(url):
-        return send({"type": "error", "message": "Ce service est protégé par DRM : téléchargement impossible"})
+        return send({"type": "error", "message": "This service is DRM-protected: it cannot be downloaded"})
 
     try:
         import yt_dlp
     except ImportError:
-        return send({"type": "error", "message": "yt-dlp n'est pas installé : relancez l'installateur du module"})
+        return send({"type": "error", "message": "yt-dlp is not installed: run install-helper.bat again"})
 
     last = {"t": 0.0}
 
@@ -300,7 +300,7 @@ def cmd_download(msg):
     abr = msg.get("abr")
     if fmt in AUDIO_FORMATS:
         if not ffmpeg:
-            return send({"type": "error", "message": "ffmpeg est introuvable : il est nécessaire pour les formats audio"})
+            return send({"type": "error", "message": "ffmpeg not found: it is required for audio formats"})
         if fmt in ("mp3", "m4a", "opus"):
             bitrate = str(int(abr)) if str(abr or "").isdigit() else AUDIO_FORMATS[fmt]
         else:
@@ -322,7 +322,7 @@ def cmd_download(msg):
             # Single-file sources (no merge needed) still end up in the chosen container.
             options["postprocessors"] = [{"key": "FFmpegVideoRemuxer", "preferedformat": fmt}]
     else:
-        return send({"type": "error", "message": "Format inconnu : %s" % fmt})
+        return send({"type": "error", "message": "Unknown format: %s" % fmt})
 
     log.info("download: url=%s format=%s quality=%s abr=%s ffmpeg=%s", url, fmt, msg.get("quality"), abr, ffmpeg)
     log.debug("yt-dlp options: %s", {k: v for k, v in options.items() if k not in ("logger", "progress_hooks", "postprocessor_hooks")})
@@ -330,13 +330,13 @@ def cmd_download(msg):
         with yt_dlp.YoutubeDL(options) as ydl:
             info = ydl.extract_info(url, download=True)
             if info is None:
-                raise RuntimeError("Aucune vidéo trouvée à cette adresse")
+                raise RuntimeError("No video found at this address")
             downloads = info.get("requested_downloads") or []
             path = downloads[-1].get("filepath") if downloads else None
             if not path:
                 path = os.path.splitext(ydl.prepare_filename(info))[0] + "." + fmt
         if not path or not os.path.exists(path):
-            raise RuntimeError("fichier final introuvable après le téléchargement")
+            raise RuntimeError("final file not found after the download")
         final = unique_path(os.path.join(download_dir(), os.path.basename(path)))
         shutil.move(path, final)
         log.info("done: %s (%s bytes)", final, os.path.getsize(final))
@@ -354,7 +354,7 @@ def cmd_download(msg):
 def cmd_reveal(msg):
     path = msg.get("path") or ""
     if not os.path.exists(path):
-        return send({"type": "error", "message": "Fichier introuvable"})
+        return send({"type": "error", "message": "File not found"})
     system = platform.system()
     if system == "Windows":
         subprocess.Popen(["explorer", "/select,", os.path.normpath(path)])
@@ -371,7 +371,7 @@ def cmd_update(_msg):
         capture_output=True, text=True,
     )
     if result.returncode != 0:
-        return send({"type": "error", "message": (result.stderr or "pip a échoué")[-600:]})
+        return send({"type": "error", "message": (result.stderr or "pip failed")[-600:]})
     out = subprocess.run([sys.executable, "-c", "import yt_dlp;print(yt_dlp.version.__version__)"],
                          capture_output=True, text=True)
     send({"type": "updated", "ytdlp": out.stdout.strip() or None})
@@ -402,7 +402,7 @@ def main():
         log.info("<- %s", json.dumps(msg, ensure_ascii=False)[:800])
         handler = COMMANDS.get(msg.get("cmd"))
         if not handler:
-            send({"type": "error", "message": "Commande inconnue : %s" % msg.get("cmd")})
+            send({"type": "error", "message": "Unknown command: %s" % msg.get("cmd")})
             continue
         try:
             handler(msg)

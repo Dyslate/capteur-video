@@ -16,7 +16,7 @@ function visible() {
 
 function render() {
   const list = visible();
-  $("count").textContent = `${list.length} entrée(s) affichée(s) sur ${entries.length}`;
+  $("count").textContent = `${list.length} of ${entries.length} entries shown`;
   $("entries").replaceChildren(
     ...list.map((e) => {
       const div = document.createElement("div");
@@ -35,11 +35,11 @@ async function load() {
 function reportText() {
   const header = [
     `Capteur vidéo ${chrome.runtime.getManifest().version} — ${new Date().toISOString()}`,
-    `Navigateur : ${navigator.userAgent}`,
+    `Browser: ${navigator.userAgent}`,
     "",
   ];
   const ext = visible().map(formatEntry);
-  const helper = helperText ? ["", "===== helper.log (fin) =====", helperText] : [];
+  const helper = helperText ? ["", "===== helper.log (end) =====", helperText] : [];
   return [...header, ...ext, ...helper].join("\n");
 }
 
@@ -48,13 +48,13 @@ $("filter").addEventListener("input", render);
 
 $("copy").addEventListener("click", async () => {
   await navigator.clipboard.writeText(reportText());
-  $("copy").textContent = "Copié ✓";
-  setTimeout(() => ($("copy").textContent = "Copier"), 1500);
+  $("copy").textContent = "Copied ✓";
+  setTimeout(() => ($("copy").textContent = "Copy"), 1500);
 });
 
 $("export").addEventListener("click", () => {
   const url = URL.createObjectURL(new Blob([reportText()], { type: "text/plain" }));
-  const a = Object.assign(document.createElement("a"), { href: url, download: `capteur-video-journal-${Date.now()}.txt` });
+  const a = Object.assign(document.createElement("a"), { href: url, download: `capteur-video-log-${Date.now()}.txt` });
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 });
@@ -68,11 +68,11 @@ async function loadHelperLog() {
   try {
     const res = await chrome.runtime.sendNativeMessage(HELPER_HOST, { cmd: "tail", lines: 300 });
     helperText = res?.text || "";
-    $("helper-log").textContent = helperText || "(vide)";
-    if (res?.path) $("helper-path").textContent = "Fin du fichier " + res.path;
+    $("helper-log").textContent = helperText || "(empty)";
+    if (res?.path) $("helper-path").textContent = "End of " + res.path;
   } catch (e) {
     helperText = "";
-    $("helper-log").textContent = "Module local injoignable : " + (e?.message || e);
+    $("helper-log").textContent = "Local helper unreachable: " + (e?.message || e);
   }
 }
 $("helper-refresh").addEventListener("click", loadHelperLog);

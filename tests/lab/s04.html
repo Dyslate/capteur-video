@@ -1,24 +1,24 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Lab 04 · HLS en fMP4</title>
+  <title>Lab 04 · HLS with fMP4 segments</title>
   <link rel="stylesheet" href="lab.css">
 </head>
 <body>
 <main>
-  <div class="crumb"><a href="index.html">← Labo de test</a></div>
-  <h1><span class="num">04</span> HLS en fMP4</h1>
-  <p class="muted">Une playlist HLS dont les segments sont en MP4 fragmenté (init.mp4 + .m4s).</p>
+  <div class="crumb"><a href="index.html">← Test lab</a></div>
+  <h1><span class="num">04</span> HLS with fMP4 segments</h1>
+  <p class="muted">An HLS playlist whose segments are fragmented MP4 (init.mp4 + .m4s).</p>
   
-  <h2>Résultat attendu dans le panneau</h2>
+  <h2>Expected in the panel</h2>
   <ul class="expect">
-    <li>Une carte « Flux HLS » · 0:08.</li>
-    <li>MP4 : un vrai .mp4 (assemblé dans le navigateur, ou via le module s'il est installé).</li>
-    <li>MP3 / WAV : conversion dans le navigateur.</li>
+    <li>One “HLS stream” card · 0:08.</li>
+    <li>MP4: a real .mp4 (assembled in the browser, or through the helper if installed).</li>
+    <li>MP3 / WAV: converted in the browser.</li>
   </ul>
-  <h2>Journal de la page</h2>
+  <h2>Page log</h2>
   <pre id="lablog"></pre>
 </main>
 <script type="module">

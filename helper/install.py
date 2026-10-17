@@ -65,16 +65,16 @@ def install(extension_ids):
     base = app_dir()
     os.makedirs(base, exist_ok=True)
 
-    step("Création de l'environnement Python")
+    step("Creating the Python environment")
     if not os.path.exists(venv_python(base)):
         venv.create(os.path.join(base, "venv"), with_pip=True)
     py = venv_python(base)
 
-    step("Installation de yt-dlp et de ffmpeg (quelques minutes la première fois)")
+    step("Installing yt-dlp and ffmpeg (a few minutes the first time)")
     subprocess.check_call([py, "-m", "pip", "install", "--upgrade", "pip"], stdout=subprocess.DEVNULL)
     subprocess.check_call([py, "-m", "pip", "install", "--upgrade", "yt-dlp[default]", "imageio-ffmpeg"])
 
-    step("Copie du module")
+    step("Copying the helper")
     shutil.copy2(os.path.join(HERE, "capteur_helper.py"), os.path.join(base, "capteur_helper.py"))
     if SYSTEM == "Windows":
         launcher = os.path.join(base, "capteur_helper.bat")
@@ -88,7 +88,7 @@ def install(extension_ids):
 
     manifest = {
         "name": HOST_NAME,
-        "description": "Capteur vidéo - module local (yt-dlp)",
+        "description": "Capteur vidéo - local helper (yt-dlp)",
         "path": launcher,
         "type": "stdio",
         "allowed_origins": ["chrome-extension://%s/" % i for i in extension_ids],
@@ -97,7 +97,7 @@ def install(extension_ids):
     with open(manifest_path, "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)
 
-    step("Enregistrement auprès des navigateurs")
+    step("Registering with the browsers")
     if SYSTEM == "Windows":
         import winreg
 
@@ -109,27 +109,27 @@ def install(extension_ids):
             os.makedirs(d, exist_ok=True)
             shutil.copy2(manifest_path, os.path.join(d, HOST_NAME + ".json"))
 
-    step("Vérifications")
+    step("Checks")
     has_ffmpeg = bool(shutil.which("ffmpeg")) or subprocess.call(
         [py, "-c", "import imageio_ffmpeg; imageio_ffmpeg.get_ffmpeg_exe()"],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0
-    print("  ffmpeg      :", "OK" if has_ffmpeg else "INTROUVABLE")
+    print("  ffmpeg      :", "OK" if has_ffmpeg else "NOT FOUND")
     runtime = next((n for n in ("deno", "node", "bun") if shutil.which(n)), None)
-    print("  JavaScript  :", runtime or "aucun (nécessaire pour YouTube)")
+    print("  JavaScript  :", runtime or "none (required for YouTube)")
     if not runtime:
         hint = {
             "Windows": "winget install DenoLand.Deno",
             "Darwin": "brew install deno",
         }.get(SYSTEM, "curl -fsSL https://deno.land/install.sh | sh")
-        print("  -> Pour YouTube, installez Deno :  " + hint)
+        print("  -> For YouTube, install Deno:  " + hint)
 
-    print("\nModule installé dans : " + base)
-    print("Redémarrez Chrome, puis rouvrez le panneau de l'extension.")
+    print("\nHelper installed in: " + base)
+    print("Restart Chrome, then open the extension panel again.")
 
 
 def uninstall():
     base = app_dir()
-    step("Suppression de l'enregistrement")
+    step("Removing the browser registration")
     if SYSTEM == "Windows":
         import winreg
 
@@ -143,15 +143,15 @@ def uninstall():
             path = os.path.join(d, HOST_NAME + ".json")
             if os.path.exists(path):
                 os.remove(path)
-    step("Suppression des fichiers")
+    step("Deleting the files")
     shutil.rmtree(base, ignore_errors=True)
-    print("Module désinstallé.")
+    print("Helper uninstalled.")
 
 
 def main():
     if sys.version_info < (3, 9):
-        sys.exit("Python 3.9 ou plus récent est nécessaire.")
-    parser = argparse.ArgumentParser(description="Installe le module local de Capteur vidéo")
+        sys.exit("Python 3.9 or later is required.")
+    parser = argparse.ArgumentParser(description="Installs the Capteur vidéo local helper")
     parser.add_argument("--uninstall", action="store_true")
     parser.add_argument("--extension-id", action="append", default=[])
     args = parser.parse_args()

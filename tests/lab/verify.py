@@ -27,16 +27,16 @@ VIDEO_EXT = {".mp4", ".mkv", ".webm", ".ts", ".mov"}
 AUDIO_CODEC = {".mp3": {"mp3"}, ".m4a": {"aac"}, ".aac": {"aac"}, ".opus": {"opus"}, ".flac": {"flac"}, ".wav": {"pcm_s16le", "pcm_s24le", "pcm_f32le"}}
 
 SCENARIOS = {
-    "01": {"name": "MP4 direct", "heights": {720}},
+    "01": {"name": "Direct MP4", "heights": {720}},
     "02": {"name": "WebM", "heights": {360}},
     "03": {"name": "HLS TS", "heights": {720, 360}},
     "04": {"name": "HLS fMP4", "heights": {720}},
     "05": {"name": "DASH", "heights": {720, 360}},
-    "06": {"name": "Pistes séparées", "heights": {720}, "needs_audio": True},
-    "07": {"name": "Manifeste intégré", "heights": {720}, "needs_audio": True},
-    "08": {"name": "Audio seul", "audio_only": True},
-    "09": {"name": "Flux chiffrés", "forbidden": True},
-    "10": {"name": "Page yt-dlp", "heights": {720, 360, 480, 1080}},
+    "06": {"name": "Split tracks", "heights": {720}, "needs_audio": True},
+    "07": {"name": "Hidden manifest", "heights": {720}, "needs_audio": True},
+    "08": {"name": "Audio only", "audio_only": True},
+    "09": {"name": "Encrypted streams", "forbidden": True},
+    "10": {"name": "yt-dlp page", "heights": {720, 360, 480, 1080}},
 }
 
 
@@ -109,7 +109,7 @@ def _child(data, start, end, *path):
 def builtin_mp4(data):
     moov = _child(data, 0, len(data), "moov")
     if not moov:
-        return None, "pas de boîte moov : fichier MP4 incomplet ou invalide"
+        return None, "no moov box: incomplete or invalid MP4 file"
     mvhd = _child(data, *moov, "mvhd")
     duration = None
     if mvhd:
@@ -218,14 +218,14 @@ def builtin_mp3(data):
         samples += 1152
         p += length
     if not frames:
-        return None, "aucune trame MP3 valide"
+        return None, "no valid MP3 frame"
     return {"container": "mp3", "duration": samples / rate, "bitrate": total_bits_rate // frames * 1000,
             "video": [], "audio": [{"codec_name": "mp3"}]}, None
 
 
 def builtin_wav(data):
     if data[:4] != b"RIFF" or data[8:12] != b"WAVE":
-        return None, "en-tête WAV invalide"
+        return None, "invalid WAV header"
     p, fmt, size = 12, None, None
     while p + 8 <= len(data):
         kind, length = data[p:p + 4], int.from_bytes(data[p + 4:p + 8], "little")
@@ -236,7 +236,7 @@ def builtin_wav(data):
             break
         p += 8 + length + (length & 1)
     if not fmt or size is None:
-        return None, "WAV incomplet (pas de bloc fmt ou data)"
+        return None, "incomplete WAV (no fmt or data chunk)"
     channels = int.from_bytes(fmt[2:4], "little")
     rate = int.from_bytes(fmt[4:8], "little")
     bits = int.from_bytes(fmt[14:16], "little")
@@ -247,7 +247,7 @@ def builtin_wav(data):
 
 def builtin_ts(data):
     if len(data) < 188 * 3 or any(data[i] != 0x47 for i in range(0, 188 * 3, 188)):
-        return None, "pas un flux MPEG-TS (octet de synchronisation absent)"
+        return None, "not an MPEG-TS stream (sync byte missing)"
     # Duration from the first and last PES timestamps (PTS) of the stream.
     first = last = None
     for p in range(0, len(data) - 188 + 1, 188):
@@ -268,7 +268,7 @@ def builtin_ts(data):
 
 def builtin_webm(data):
     if data[:4] != b"\x1a\x45\xdf\xa3":
-        return None, "en-tête WebM/Matroska invalide"
+        return None, "invalid WebM/Matroska header"
     i = data.find(b"\x44\x89")  # Duration element
     duration = None
     if i > 0:
@@ -290,7 +290,7 @@ def builtin_webm(data):
 
 def builtin_flac(data):
     if data[:4] != b"fLaC":
-        return None, "en-tête FLAC invalide"
+        return None, "invalid FLAC header"
     info = data[8:8 + 34]  # STREAMINFO is always the first metadata block
     rate = int.from_bytes(info[10:13], "big") >> 4
     samples = int.from_bytes(info[13:18], "big") & 0xFFFFFFFFF
@@ -300,7 +300,7 @@ def builtin_flac(data):
 
 def builtin_ogg(data):
     if data[:4] != b"OggS":
-        return None, "en-tête Ogg invalide"
+        return None, "invalid Ogg header"
     codec = "opus" if b"OpusHead" in data[:200] else "vorbis" if b"\x01vorbis" in data[:200] else "?"
     last = data.rfind(b"OggS")
     granule = int.from_bytes(data[last + 6:last + 14], "little")
@@ -334,9 +334,9 @@ def probe_builtin(path):
     elif ext in (".opus", ".ogg", ".oga"):
         info, err = builtin_ogg(data)
     else:
-        return None, "format %s : inspection impossible sans ffmpeg" % ext
+        return None, "format %s: cannot be inspected without ffmpeg" % ext
     if info:
-        info["raw"] = "(inspection intégrée)"
+        info["raw"] = "(built-in inspection)"
     return info, err
 
 
@@ -412,75 +412,75 @@ def check(path, info, errors, scenario, name):
     ext = os.path.splitext(path)[1].lower()
     notes, problems, warnings = [], [], []
     if scenario.get("forbidden"):
-        return "fail", ["ce flux est chiffré : AUCUN fichier ne devrait exister"]
+        return "fail", ["this stream is encrypted: NO file should exist"]
 
     if info["duration"] is None:
-        warnings.append("durée inconnue")
+        warnings.append("unknown duration")
     elif abs(info["duration"] - CLIP_SECONDS) > 0.6:
-        problems.append("durée %.2f s (attendu ~%.0f s : fichier tronqué ou incomplet ?)" % (info["duration"], CLIP_SECONDS))
+        problems.append("duration %.2f s (expected ~%.0f s: truncated or incomplete file?)" % (info["duration"], CLIP_SECONDS))
     else:
         notes.append("%.2f s" % info["duration"])
 
     if ext in VIDEO_EXT:
         if not info["video"]:
-            problems.append("aucune piste vidéo")
+            problems.append("no video track")
         else:
             v = info["video"][0]
             notes.append("%s %sx%s" % (v.get("codec_name"), v["width"], v["height"]) if v.get("width") else str(v.get("codec_name")))
             if scenario.get("heights") and v.get("height") and v["height"] not in scenario["heights"]:
-                warnings.append("hauteur %s inattendue (attendu %s)" % (v["height"], sorted(scenario["heights"])))
-        silent = "sans son" in name.lower()
+                warnings.append("unexpected height %s (expected %s)" % (v["height"], sorted(scenario["heights"])))
+        silent = "no sound" in name.lower()
         if silent:
             if info["audio"]:
-                problems.append("fichier « sans son » qui contient du son")
+                problems.append("“no sound” file that contains sound")
             else:
-                notes.append("sans son (voulu)")
+                notes.append("no sound (as requested)")
         elif not info["audio"]:
-            (problems if scenario.get("needs_audio") else warnings).append("aucune piste audio")
+            (problems if scenario.get("needs_audio") else warnings).append("no audio track")
         else:
             notes.append("+ %s" % info["audio"][0].get("codec_name"))
     elif ext in AUDIO_CODEC:
         if info["video"]:
-            warnings.append("contient aussi de la vidéo")
+            warnings.append("also contains video")
         if not info["audio"]:
-            problems.append("aucune piste audio")
+            problems.append("no audio track")
         else:
             codec = info["audio"][0].get("codec_name")
             if codec not in AUDIO_CODEC[ext]:
-                problems.append("codec %s pour une extension %s" % (codec, ext))
+                problems.append("codec %s for a %s extension" % (codec, ext))
             else:
                 kbps = " %d kb/s" % round(info["bitrate"] / 1000) if info.get("bitrate") else ""
                 notes.append(codec + kbps)
     else:
-        warnings.append("extension %s non vérifiée" % ext)
+        warnings.append("extension %s not checked" % ext)
 
     if scenario.get("audio_only") and ext in VIDEO_EXT:
-        problems.append("fichier vidéo pour une source audio seule")
+        problems.append("video file for an audio-only source")
     if errors:
-        problems.append("%d erreur(s) de décodage : %s" % (len(errors), errors[0][:120]))
+        problems.append("%d decoding error(s): %s" % (len(errors), errors[0][:120]))
 
     status = "fail" if problems else "warn" if warnings else "ok"
     return status, problems + warnings + notes
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Vérifie les fichiers téléchargés depuis le labo")
-    parser.add_argument("--since", type=float, help="minutes à remonter (défaut : depuis le lancement de serve.py)")
-    parser.add_argument("--dir", action="append", default=[], help="autre dossier à inspecter")
+    parser = argparse.ArgumentParser(description="Checks the files downloaded from the test lab")
+    parser.add_argument("--since", type=float, help="how many minutes back (default: since serve.py started)")
+    parser.add_argument("--dir", action="append", default=[], help="another folder to inspect")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
 
     ffprobe, ffmpeg = tools()
-    log("Outils : ffprobe=%s  ffmpeg=%s" % (ffprobe or "absent", ffmpeg or "absent"))
+    log("Tools: ffprobe=%s  ffmpeg=%s" % (ffprobe or "missing", ffmpeg or "missing"))
     builtin = not ffprobe and not ffmpeg
     if builtin:
-        log("Sans ffmpeg : inspection intégrée (pistes, codecs, durée, résolution).")
-        log("Les erreurs de décodage ne peuvent pas être détectées ; installez le module local pour un contrôle complet.")
+        log("No ffmpeg: built-in inspection (tracks, codecs, duration, resolution).")
+        log("Decoding errors cannot be detected; install the local helper for a full check.")
 
     since = since_timestamp(args.since)
     dirs = download_dirs(args.dir)
-    log("Fichiers modifiés depuis : %s" % time.strftime("%d/%m %H:%M:%S", time.localtime(since)))
-    log("Dossiers inspectés :")
+    log("Files modified since: %s" % time.strftime("%d/%m %H:%M:%S", time.localtime(since)))
+    log("Folders inspected:")
     for d in dirs:
         log("  - " + d)
 
@@ -494,17 +494,17 @@ def main():
             if not m:
                 continue
             if os.path.getmtime(path) < since:
-                log("  (ignoré, trop ancien) " + name)
+                log("  (skipped, too old) " + name)
                 continue
             files.append((m.group(1), path))
 
     if not files:
-        log("\nAucun fichier « Lab NN … » récent. Téléchargez depuis les pages du labo, puis relancez.")
+        log("\nNo recent “Lab NN …” file. Download from the lab pages, then run this again.")
         return 1
 
-    log("\n%d fichier(s) à vérifier\n" % len(files))
+    log("\n%d file(s) to check\n" % len(files))
     counts = {"ok": 0, "warn": 0, "fail": 0}
-    icons = {"ok": "OK  ", "warn": "ATTN", "fail": "ÉCHEC"}
+    icons = {"ok": "OK  ", "warn": "WARN", "fail": "FAIL"}
     seen = set()
     for sid, path in sorted(files):
         seen.add(sid)
@@ -518,20 +518,20 @@ def main():
             info, err = probe_builtin(path)
         if info is None:
             counts["fail"] += 1
-            log("[%s] %s · %s\n      illisible : %s" % (icons["fail"], sid, name, err))
+            log("[%s] %s · %s\n      unreadable: %s" % (icons["fail"], sid, name, err))
             continue
         errors = decode_errors(ffmpeg, path) if ffmpeg else []
         status, notes = check(path, info, errors, scenario, name)
         counts[status] += 1
-        log("[%s] %s %s · %s (%s o)" % (icons[status], sid, scenario["name"], name, format(os.path.getsize(path), ",").replace(",", " ")))
+        log("[%s] %s %s · %s (%s B)" % (icons[status], sid, scenario["name"], name, format(os.path.getsize(path), ",").replace(",", " ")))
         log("      " + " · ".join(notes))
         if args.verbose:
             log("      ffprobe : " + (json.dumps(info["raw"], ensure_ascii=False) if isinstance(info["raw"], dict) else info["raw"].replace("\n", "\n      ")))
 
     missing = [sid for sid in SCENARIOS if sid not in seen and not SCENARIOS[sid].get("forbidden")]
-    log("\nRésumé : %d OK · %d à surveiller · %d en échec" % (counts["ok"], counts["warn"], counts["fail"]))
+    log("\nSummary: %d OK · %d warnings · %d failed" % (counts["ok"], counts["warn"], counts["fail"]))
     if missing:
-        log("Scénarios sans aucun fichier : " + ", ".join("%s (%s)" % (s, SCENARIOS[s]["name"]) for s in missing))
+        log("Scenarios without any file: " + ", ".join("%s (%s)" % (s, SCENARIOS[s]["name"]) for s in missing))
     return 1 if counts["fail"] else 0
 
 

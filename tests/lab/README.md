@@ -41,7 +41,7 @@ Every page shows its own log (requests with status, size, content type, timing; 
 |---|---|
 | `make_fixtures.py` | Generates `media/` (about 15 MB, ~10 s). `--clean` deletes it. |
 | `serve.py` | Local server: byte ranges, `bytestart`/`byteend`, no caching, logs every media request with its `Referer`. `--port`, `--no-browser`. |
-| `verify.py` | Checks downloads: tracks, codec vs. extension, 8 s duration, resolution, decoding errors, "sans son" files really silent, nothing from scenario 09. `--since MIN`, `--dir PATH`, `-v`. Exit code 1 on failure. |
+| `verify.py` | Checks downloads: tracks, codec vs. extension, 8 s duration, resolution, decoding errors, "sans son" files really silent, nothing from scenario 09. Uses ffprobe/ffmpeg from the PATH or the local helper; without any ffmpeg it reads the containers itself (MP4 incl. fragmented, MP3, WAV, TS, WebM/MKV, FLAC, Ogg Opus) but cannot detect decoding errors. `--since MIN`, `--dir PATH`, `-v`. Exit code 1 on failure. |
 | `lancer-labo.bat`, `verifier.bat` | Windows launchers for `serve.py` and `verify.py`. |
 | `lab.js`, `lab.css` | Shared page script (request log) and style. |
 

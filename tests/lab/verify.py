@@ -44,8 +44,22 @@ def log(text=""):
     print(text, flush=True)
 
 
+def helper_ffmpeg():
+    """ffmpeg bundled with the local helper (helper/install.py), if installed."""
+    if os.name == "nt":
+        venv = os.path.join(os.environ.get("LOCALAPPDATA", ""), "CapteurVideo", "venv", "Scripts", "python.exe")
+    else:
+        venv = os.path.join(os.path.expanduser("~"), ".capteur-video", "venv", "bin", "python")
+    if not os.path.exists(venv):
+        return None
+    out = subprocess.run([venv, "-c", "import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())"],
+                         capture_output=True, text=True)
+    path = out.stdout.strip()
+    return path if out.returncode == 0 and os.path.exists(path) else None
+
+
 def tools():
-    """ffprobe for inspection, ffmpeg for the decode check (system or helper-bundled)."""
+    """ffprobe for inspection, ffmpeg for the decode check: system, pip package, or the helper's."""
     ffprobe = shutil.which("ffprobe")
     ffmpeg = shutil.which("ffmpeg")
     if not ffmpeg:
@@ -54,8 +68,276 @@ def tools():
 
             ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
         except ImportError:
-            pass
+            ffmpeg = helper_ffmpeg()
     return ffprobe, ffmpeg
+
+
+# ---------- built-in inspection (no ffmpeg) ----------
+# Reads the container structure only: tracks, codecs, duration, resolution.
+# It cannot detect decoding errors inside the media data.
+
+MP4_CODECS = {"avc1": "h264", "avc3": "h264", "hvc1": "hevc", "hev1": "hevc", "vp09": "vp9", "av01": "av1",
+              "mp4a": "aac", "Opus": "opus", "fLaC": "flac", "ac-3": "ac3", "ec-3": "eac3", ".mp3": "mp3"}
+
+
+def _boxes(data, start, end):
+    p = start
+    while p + 8 <= end:
+        size = int.from_bytes(data[p:p + 4], "big")
+        kind = data[p + 4:p + 8].decode("latin-1")
+        header = 8
+        if size == 1:
+            size = int.from_bytes(data[p + 8:p + 16], "big")
+            header = 16
+        elif size == 0:
+            size = end - p
+        if size < header:
+            return
+        yield kind, p + header, min(p + size, end)
+        p += size
+
+
+def _child(data, start, end, *path):
+    for kind in path:
+        found = next(((s, e) for k, s, e in _boxes(data, start, end) if k == kind), None)
+        if not found:
+            return None
+        start, end = found
+    return start, end
+
+
+def builtin_mp4(data):
+    moov = _child(data, 0, len(data), "moov")
+    if not moov:
+        return None, "pas de boîte moov : fichier MP4 incomplet ou invalide"
+    mvhd = _child(data, *moov, "mvhd")
+    duration = None
+    if mvhd:
+        s, _ = mvhd
+        v1 = data[s] == 1
+        ts = int.from_bytes(data[s + (20 if v1 else 12):s + (24 if v1 else 16)], "big")
+        du = int.from_bytes(data[s + (24 if v1 else 16):s + (32 if v1 else 20)], "big")
+        duration = du / ts if ts else None
+    video, audio = [], []
+    for kind, s, e in _boxes(data, *moov):
+        if kind != "trak":
+            continue
+        hdlr = _child(data, s, e, "mdia", "hdlr")
+        handler = data[hdlr[0] + 8:hdlr[0] + 12].decode("latin-1") if hdlr else ""
+        stsd = _child(data, s, e, "mdia", "minf", "stbl", "stsd")
+        codec = data[stsd[0] + 12:stsd[0] + 16].decode("latin-1") if stsd else "?"
+        mdhd = _child(data, s, e, "mdia", "mdhd")
+        if mdhd and not duration:
+            ms = mdhd[0]
+            v1 = data[ms] == 1
+            ts = int.from_bytes(data[ms + (20 if v1 else 12):ms + (24 if v1 else 16)], "big")
+            du = int.from_bytes(data[ms + (24 if v1 else 16):ms + (32 if v1 else 20)], "big")
+            duration = du / ts if ts else None
+        entry = {"codec_name": MP4_CODECS.get(codec, codec)}
+        if handler == "vide":
+            tkhd = _child(data, s, e, "tkhd")
+            if tkhd:
+                entry["width"] = int.from_bytes(data[tkhd[1] - 8:tkhd[1] - 4], "big") >> 16
+                entry["height"] = int.from_bytes(data[tkhd[1] - 4:tkhd[1]], "big") >> 16
+            video.append(entry)
+        elif handler == "soun":
+            audio.append(entry)
+    # Fragmented files: the header says 0, the duration is the end of the last fragment.
+    if not duration:
+        duration = fragmented_duration(data, moov)
+    return {"container": "mp4", "duration": duration, "bitrate": None, "video": video, "audio": audio}, None
+
+
+def fragmented_duration(data, moov):
+    """Longest track end time: max over fragments of tfdt + sum of sample durations."""
+    u32 = lambda p: int.from_bytes(data[p:p + 4], "big")
+    timescale, default_dur = {}, {}
+    for kind, s, e in _boxes(data, *moov):
+        if kind == "trak":
+            tkhd, mdhd = _child(data, s, e, "tkhd"), _child(data, s, e, "mdia", "mdhd")
+            if tkhd and mdhd:
+                tid = u32(tkhd[0] + (20 if data[tkhd[0]] == 1 else 12))
+                timescale[tid] = u32(mdhd[0] + (20 if data[mdhd[0]] == 1 else 12))
+        elif kind == "mvex":
+            for k, ts_, te in _boxes(data, s, e):
+                if k == "trex":
+                    default_dur[u32(ts_ + 4)] = u32(ts_ + 12)
+    ends = {}
+    for kind, s, e in _boxes(data, 0, len(data)):
+        if kind != "moof":
+            continue
+        for k, ts_, te in _boxes(data, s, e):
+            if k != "traf":
+                continue
+            tid, dur, start, total = None, None, 0, 0
+            for kk, bs, be in _boxes(data, ts_, te):
+                flags = int.from_bytes(data[bs + 1:bs + 4], "big")
+                if kk == "tfhd":
+                    tid = u32(bs + 4)
+                    p = bs + 8 + (8 if flags & 0x01 else 0) + (4 if flags & 0x02 else 0)
+                    dur = u32(p) if flags & 0x08 else default_dur.get(tid, 0)
+                elif kk == "tfdt":
+                    start = int.from_bytes(data[bs + 4:bs + (12 if data[bs] == 1 else 8)], "big")
+                elif kk == "trun":
+                    count = u32(bs + 4)
+                    p = bs + 8 + (4 if flags & 0x01 else 0) + (4 if flags & 0x04 else 0)
+                    per = sum(4 for bit in (0x100, 0x200, 0x400, 0x800) if flags & bit)
+                    if flags & 0x100:
+                        total += sum(u32(p + i * per) for i in range(count))
+                    else:
+                        total += count * (dur or 0)
+            if tid in timescale and timescale[tid]:
+                ends[tid] = max(ends.get(tid, 0), (start + total) / timescale[tid])
+    return max(ends.values()) if ends else None
+
+
+MP3_KBPS = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320]
+MP3_RATES = [44100, 48000, 32000]
+
+
+def builtin_mp3(data):
+    p = 0
+    if data[:3] == b"ID3":
+        p = 10 + ((data[6] & 0x7f) << 21 | (data[7] & 0x7f) << 14 | (data[8] & 0x7f) << 7 | (data[9] & 0x7f))
+    frames, total_bits_rate, samples = 0, 0, 0
+    rate = None
+    while p + 4 <= len(data):
+        h = int.from_bytes(data[p:p + 4], "big")
+        if (h >> 21) & 0x7ff != 0x7ff or (h >> 19) & 3 != 3 or (h >> 17) & 3 != 1:
+            if frames == 0:
+                p += 1
+                continue
+            break
+        kbps = MP3_KBPS[(h >> 12) & 0xf] if (h >> 12) & 0xf < 15 else 0
+        rate = MP3_RATES[(h >> 10) & 3] if (h >> 10) & 3 < 3 else 0
+        if not kbps or not rate:
+            break
+        length = 144000 * kbps // rate + ((h >> 9) & 1)
+        frames += 1
+        total_bits_rate += kbps
+        samples += 1152
+        p += length
+    if not frames:
+        return None, "aucune trame MP3 valide"
+    return {"container": "mp3", "duration": samples / rate, "bitrate": total_bits_rate // frames * 1000,
+            "video": [], "audio": [{"codec_name": "mp3"}]}, None
+
+
+def builtin_wav(data):
+    if data[:4] != b"RIFF" or data[8:12] != b"WAVE":
+        return None, "en-tête WAV invalide"
+    p, fmt, size = 12, None, None
+    while p + 8 <= len(data):
+        kind, length = data[p:p + 4], int.from_bytes(data[p + 4:p + 8], "little")
+        if kind == b"fmt ":
+            fmt = data[p + 8:p + 8 + length]
+        elif kind == b"data":
+            size = min(length, len(data) - p - 8)
+            break
+        p += 8 + length + (length & 1)
+    if not fmt or size is None:
+        return None, "WAV incomplet (pas de bloc fmt ou data)"
+    channels = int.from_bytes(fmt[2:4], "little")
+    rate = int.from_bytes(fmt[4:8], "little")
+    bits = int.from_bytes(fmt[14:16], "little")
+    codec = {16: "pcm_s16le", 24: "pcm_s24le", 32: "pcm_f32le"}.get(bits, "pcm")
+    return {"container": "wav", "duration": size / (rate * channels * bits / 8), "bitrate": rate * channels * bits,
+            "video": [], "audio": [{"codec_name": codec}]}, None
+
+
+def builtin_ts(data):
+    if len(data) < 188 * 3 or any(data[i] != 0x47 for i in range(0, 188 * 3, 188)):
+        return None, "pas un flux MPEG-TS (octet de synchronisation absent)"
+    # Duration from the first and last PES timestamps (PTS) of the stream.
+    first = last = None
+    for p in range(0, len(data) - 188 + 1, 188):
+        pkt = data[p:p + 188]
+        if not pkt[1] & 0x40:
+            continue  # not the start of a PES packet
+        off = 4 + (pkt[4] + 1 if pkt[3] & 0x20 else 0)
+        if pkt[off:off + 3] != b"\x00\x00\x01" or not pkt[off + 7] & 0x80:
+            continue
+        b = pkt[off + 9:off + 14]
+        pts = ((b[0] >> 1) & 7) << 30 | b[1] << 22 | (b[2] >> 1) << 15 | b[3] << 7 | b[4] >> 1
+        first = pts if first is None else min(first, pts)
+        last = pts if last is None else max(last, pts)
+    duration = (last - first) / 90000 + 0.04 if first is not None else None
+    return {"container": "mpegts", "duration": duration, "bitrate": None,
+            "video": [{"codec_name": "h264?"}], "audio": [{"codec_name": "aac?"}]}, None
+
+
+def builtin_webm(data):
+    if data[:4] != b"\x1a\x45\xdf\xa3":
+        return None, "en-tête WebM/Matroska invalide"
+    i = data.find(b"\x44\x89")  # Duration element
+    duration = None
+    if i > 0:
+        size = data[i + 2] & 0x7f if data[i + 2] & 0x80 else None
+        if size in (4, 8):
+            import struct
+            raw = data[i + 3:i + 3 + size]
+            value = struct.unpack(">f" if size == 4 else ">d", raw)[0]
+            j = data.find(b"\x2a\xd7\xb1")  # TimecodeScale
+            scale = 1_000_000
+            if 0 < j < i:
+                n = data[j + 3] & 0x7f
+                scale = int.from_bytes(data[j + 4:j + 4 + n], "big")
+            duration = value * scale / 1e9
+    video = [{"codec_name": c} for c, tag in (("vp9", b"V_VP9"), ("vp8", b"V_VP8"), ("av1", b"V_AV1"), ("h264", b"V_MPEG4/ISO/AVC")) if tag in data[:200000]]
+    audio = [{"codec_name": c} for c, tag in (("opus", b"A_OPUS"), ("vorbis", b"A_VORBIS"), ("aac", b"A_AAC")) if tag in data[:200000]]
+    return {"container": "webm", "duration": duration, "bitrate": None, "video": video, "audio": audio}, None
+
+
+def builtin_flac(data):
+    if data[:4] != b"fLaC":
+        return None, "en-tête FLAC invalide"
+    info = data[8:8 + 34]  # STREAMINFO is always the first metadata block
+    rate = int.from_bytes(info[10:13], "big") >> 4
+    samples = int.from_bytes(info[13:18], "big") & 0xFFFFFFFFF
+    return {"container": "flac", "duration": samples / rate if rate else None, "bitrate": None,
+            "video": [], "audio": [{"codec_name": "flac"}]}, None
+
+
+def builtin_ogg(data):
+    if data[:4] != b"OggS":
+        return None, "en-tête Ogg invalide"
+    codec = "opus" if b"OpusHead" in data[:200] else "vorbis" if b"\x01vorbis" in data[:200] else "?"
+    last = data.rfind(b"OggS")
+    granule = int.from_bytes(data[last + 6:last + 14], "little")
+    if codec == "opus":
+        i = data.find(b"OpusHead")
+        pre_skip = int.from_bytes(data[i + 10:i + 12], "little")
+        duration = (granule - pre_skip) / 48000
+    else:
+        i = data.find(b"\x01vorbis")
+        rate = int.from_bytes(data[i + 12:i + 16], "little")
+        duration = granule / rate if rate else None
+    return {"container": "ogg", "duration": duration, "bitrate": None, "video": [], "audio": [{"codec_name": codec}]}, None
+
+
+def probe_builtin(path):
+    with open(path, "rb") as f:
+        data = f.read()
+    ext = os.path.splitext(path)[1].lower()
+    if ext in (".mp4", ".m4a", ".mov"):
+        info, err = builtin_mp4(data)
+    elif ext == ".mp3":
+        info, err = builtin_mp3(data)
+    elif ext == ".wav":
+        info, err = builtin_wav(data)
+    elif ext == ".ts":
+        info, err = builtin_ts(data)
+    elif ext in (".webm", ".mkv"):
+        info, err = builtin_webm(data)
+    elif ext == ".flac":
+        info, err = builtin_flac(data)
+    elif ext in (".opus", ".ogg", ".oga"):
+        info, err = builtin_ogg(data)
+    else:
+        return None, "format %s : inspection impossible sans ffmpeg" % ext
+    if info:
+        info["raw"] = "(inspection intégrée)"
+    return info, err
 
 
 def download_dirs(extra):
@@ -144,7 +426,7 @@ def check(path, info, errors, scenario, name):
             problems.append("aucune piste vidéo")
         else:
             v = info["video"][0]
-            notes.append("%s %sx%s" % (v.get("codec_name"), v.get("width"), v.get("height")))
+            notes.append("%s %sx%s" % (v.get("codec_name"), v["width"], v["height"]) if v.get("width") else str(v.get("codec_name")))
             if scenario.get("heights") and v.get("height") and v["height"] not in scenario["heights"]:
                 warnings.append("hauteur %s inattendue (attendu %s)" % (v["height"], sorted(scenario["heights"])))
         silent = "sans son" in name.lower()
@@ -190,8 +472,10 @@ def main():
 
     ffprobe, ffmpeg = tools()
     log("Outils : ffprobe=%s  ffmpeg=%s" % (ffprobe or "absent", ffmpeg or "absent"))
-    if not ffprobe and not ffmpeg:
-        sys.exit("Ni ffprobe ni ffmpeg : impossible d'inspecter les fichiers. Installez ffmpeg ou le module local.")
+    builtin = not ffprobe and not ffmpeg
+    if builtin:
+        log("Sans ffmpeg : inspection intégrée (pistes, codecs, durée, résolution).")
+        log("Les erreurs de décodage ne peuvent pas être détectées ; installez le module local pour un contrôle complet.")
 
     since = since_timestamp(args.since)
     dirs = download_dirs(args.dir)
@@ -226,7 +510,12 @@ def main():
         seen.add(sid)
         scenario = SCENARIOS.get(sid, {"name": "?"})
         name = os.path.basename(path)
-        info, err = probe_ffprobe(ffprobe, path) if ffprobe else probe_ffmpeg(ffmpeg, path)
+        if ffprobe:
+            info, err = probe_ffprobe(ffprobe, path)
+        elif ffmpeg:
+            info, err = probe_ffmpeg(ffmpeg, path)
+        else:
+            info, err = probe_builtin(path)
         if info is None:
             counts["fail"] += 1
             log("[%s] %s · %s\n      illisible : %s" % (icons["fail"], sid, name, err))

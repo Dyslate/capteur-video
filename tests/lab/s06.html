@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lab 06 · Pistes séparées (style Instagram)</title>
+  <link rel="stylesheet" href="lab.css">
+</head>
+<body>
+<main>
+  <div class="crumb"><a href="index.html">← Labo de test</a></div>
+  <h1><span class="num">06</span> Pistes séparées (style Instagram)</h1>
+  <p class="muted">Comme sur Instagram : la vidéo et le son sont deux fichiers distincts, demandés par morceaux avec <code>bytestart</code>/<code>byteend</code> et identifiés par un paramètre <code>efg</code>.</p>
+  
+  <h2>Résultat attendu dans le panneau</h2>
+  <ul class="expect">
+    <li>Une seule carte « Vidéo » : les deux pistes sont appariées (journal : « pistes appariées · identifiant (efg) »).</li>
+    <li>MP4 : un fichier avec l'image ET le son.</li>
+    <li>MP4 sans le son, M4A, MP3, WAV : dans le navigateur.</li>
+  </ul>
+  <h2>Journal de la page</h2>
+  <pre id="lablog"></pre>
+</main>
+<script type="module">
+import { labLog, labFetch, watchMedia, efg } from "./lab.js";
+const asset = 900001;
+const v = "media/split/video.mp4?efg=" + efg({ vencode_tag: "dash_baseline_1_v1_720", xpv_asset_id: asset }) + "&_nc_ht=lab";
+const a = "media/split/audio.m4a?efg=" + efg({ vencode_tag: "dash_ln_heaac_vbr3_audio", xpv_asset_id: asset }) + "&_nc_ht=lab";
+await labFetch(v + "&bytestart=0&byteend=200000");
+await labFetch(a + "&bytestart=0&byteend=40000");
+await labFetch(v + "&bytestart=200001&byteend=400000");
+</script>
+</body>
+</html>

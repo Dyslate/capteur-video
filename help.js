@@ -23,6 +23,7 @@ async function check() {
     `ffmpeg ${h.ffmpeg ? "OK" : "absent"}`,
     `JavaScript (YouTube) : ${h.jsRuntime || "absent, installez Deno"}`,
     `Dossier : ${h.downloadDir}`,
+    `Journal : ${h.logFile || "?"}`,
   ].join(" · ");
 }
 

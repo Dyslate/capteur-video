@@ -106,11 +106,17 @@ The Chrome Web Store rejects extensions that facilitate YouTube downloads, which
 | `scripts/build.py` | Packaging |
 | `store/` | Chrome Web Store listing material |
 
+## Troubleshooting
+
+- **Journal** (link at the bottom of the side panel): every detection decision (added / ignored and why), stream analysis, probe, track pairing, request retry, merge, decode and save, with timings. Filter it, then **Copier** or **Exporter** to share it. It also shows the end of the local helper's `helper.log` (yt-dlp verbose output).
+- **Test lab**: `tests/lab/` serves synthetic streams of every kind and checks the downloaded files. See [tests/lab/README.md](tests/lab/README.md).
+
 ## Development
 
 ```
 npm test                              # unit tests (Node 18+, ffmpeg for the MP4 tests)
 python3 tests/helper_protocol_test.py # helper protocol, offline (yt-dlp test double)
+cd tests/lab && python3 serve.py      # manual end-to-end lab, then python3 verify.py
 ```
 
 GitHub Actions runs both on every push and attaches the built zips as artifacts.

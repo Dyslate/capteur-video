@@ -21,6 +21,7 @@ Context for Claude sessions working on this repository.
 | `lib/fetcher.js` | Segment fetching (6 parallel, 3 retries), `withReferer()` DNR session rule. |
 | `lib/scan.js` | `scanPage()` injected by "Forcer la détection". Must stay self-contained. |
 | `lib/formats.js` | Format catalogue, `engineFor()` (browser vs helper), `qualitiesFor()`. Every card uses `optionsRow()` in `panel.js`. |
+| `lib/log.js` | Diagnostic log. `createLogger(context)`; the service worker writes `log:bg`, each page instance `log:<context>#<id>` (never share one key between instances). `log.html` merges and exports. |
 | `lib/policy.js` + `lib/config.js` | Exclusions and build flavour (`BUILD = "personal" \| "store"`). |
 | `helper/capteur_helper.py` | Native messaging host: `ping`, `download` (`format`, `quality`, `abr`), `reveal`, `update`. stdout is the protocol channel: never print to it. |
 | `helper/install.py` | venv + `yt-dlp[default]` + `imageio-ffmpeg`, launcher, host manifest registration. |
@@ -35,6 +36,8 @@ Host name: `com.dyslate.capteur_video`. Extension ID: `gkbhlagbekepghjaegeolhjkm
 - No remote code, no `eval`, no inline scripts (MV3 CSP).
 - Always download through `U.download()` (it retries rejected file names).
 - Keep permissions minimal; justify new ones in `store/README.md`.
+- Log every decision that can explain a failure (detection skip reasons, parse results, pairing, retries, merge, decode, save). Logs and user-facing text in French; code comments in English.
+- Helper jobs work in a per-job folder and move the result with `unique_path()`: never delete or overwrite a user's file.
 
 ## Checking changes
 
@@ -47,6 +50,8 @@ python3 scripts/build.py         # dist/*.zip
 ```
 
 In Playwright tests, wait until `chrome.downloads` exists in the service worker before using it (APIs are bound ~1 s after start), and use a fresh profile so no stale service worker runs.
+
+Manual end-to-end: `tests/lab/` (`serve.py`, then `verify.py`). It covers every stream type with synthetic media.
 
 `tests/fake_yt_dlp/` is a yt-dlp test double for exercising the helper protocol without network access. Plain Chromium has no AAC decoder: test in-browser MP3 with Opus audio, or use Google Chrome.
 

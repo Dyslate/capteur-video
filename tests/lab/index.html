@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Labo de test · Capteur vidéo</title>
+  <link rel="stylesheet" href="lab.css">
+</head>
+<body>
+<main>
+  <h1>Labo de test</h1>
+  <p class="muted">Des médias factices (mire + bip, générés par ffmpeg) pour tester chaque type de flux, sans dépendre d'un vrai site.</p>
+
+  <div class="box">
+    <ol class="steps">
+      <li>Ouvrez le panneau de l'extension (icône Capteur vidéo).</li>
+      <li>Ouvrez un scénario ci-dessous, puis regardez la carte qui apparaît dans le panneau.</li>
+      <li>Téléchargez dans plusieurs formats et qualités.</li>
+      <li>Lancez <code>python verify.py</code> : il contrôle chaque fichier téléchargé (pistes, durée, codec, erreurs de décodage).</li>
+      <li>En cas d'échec : panneau → <strong>Journal</strong> → « Copier », et la sortie de <code>verify.py</code>.</li>
+    </ol>
+  </div>
+
+  <h2>Scénarios</h2>
+  <div class="grid">
+    <a href="s01.html"><div class="box"><span class="num">01</span> <strong>MP4 direct</strong><br><span class="muted">Un fichier MP4 complet (H.</span></div></a>
+    <a href="s02.html"><div class="box"><span class="num">02</span> <strong>WebM (VP9 + Opus)</strong><br><span class="muted">Un fichier WebM 640×360 lu par une balise <video>.</span></div></a>
+    <a href="s03.html"><div class="box"><span class="num">03</span> <strong>HLS en TS, deux qualités</strong><br><span class="muted">Une playlist maître HLS (720p et 360p) avec des segments .</span></div></a>
+    <a href="s04.html"><div class="box"><span class="num">04</span> <strong>HLS en fMP4</strong><br><span class="muted">Une playlist HLS dont les segments sont en MP4 fragmenté (init.</span></div></a>
+    <a href="s05.html"><div class="box"><span class="num">05</span> <strong>DASH, vidéo et audio séparés</strong><br><span class="muted">Un manifeste DASH (SegmentTemplate) avec la vidéo en 720p et 360p, et l'audio à part.</span></div></a>
+    <a href="s06.html"><div class="box"><span class="num">06</span> <strong>Pistes séparées (style Instagram)</strong><br><span class="muted">Comme sur Instagram : la vidéo et le son sont deux fichiers distincts, demandés par morceaux avec <code>bytestart</code>/<code>byteend</code> et identifiés par un paramètre <code>efg</code>.</span></div></a>
+    <a href="s07.html"><div class="box"><span class="num">07</span> <strong>Manifeste caché dans la page</strong><br><span class="muted">Rien ne se charge tout seul : le manifeste DASH est caché dans les données JSON de la page, comme sur certaines pages Instagram.</span></div></a>
+    <a href="s08.html"><div class="box"><span class="num">08</span> <strong>Audio seul</strong><br><span class="muted">Un fichier M4A (AAC) lu par une balise <audio>.</span></div></a>
+    <a href="s09.html"><div class="box"><span class="num">09</span> <strong>Flux chiffrés (refus attendu)</strong><br><span class="muted">Un flux HLS chiffré (AES-128) et un flux DASH protégé (ContentProtection).</span></div></a>
+    <a href="s10.html"><div class="box"><span class="num">10</span> <strong>Page pour le module yt-dlp</strong><br><span class="muted">Une page classique avec une vidéo : sert à tester la carte « Toute la page avec yt-dlp ».</span></div></a>
+  </div>
+  <h2>Journal de la page</h2>
+  <pre id="lablog"></pre>
+</main>
+<script type="module">import "./lab.js";</script>
+</body>
+</html>

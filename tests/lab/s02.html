@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lab 02 · WebM (VP9 + Opus)</title>
+  <link rel="stylesheet" href="lab.css">
+</head>
+<body>
+<main>
+  <div class="crumb"><a href="index.html">← Labo de test</a></div>
+  <h1><span class="num">02</span> WebM (VP9 + Opus)</h1>
+  <p class="muted">Un fichier WebM 640×360 lu par une balise &lt;video&gt;.</p>
+  <video id="v" src="media/direct.webm" controls muted autoplay></video>
+  <h2>Résultat attendu dans le panneau</h2>
+  <ul class="expect">
+    <li>Une carte « Vidéo ».</li>
+    <li>MP4 : le fichier part dans son format d'origine (.webm).</li>
+    <li>MP3 / WAV : conversion dans le navigateur (l'Opus est toujours décodable).</li>
+  </ul>
+  <h2>Journal de la page</h2>
+  <pre id="lablog"></pre>
+</main>
+<script type="module">
+import { labLog, labFetch, watchMedia, efg } from "./lab.js";
+watchMedia(document.getElementById('v'));
+</script>
+</body>
+</html>

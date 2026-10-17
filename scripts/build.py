@@ -21,7 +21,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DIST = os.path.join(ROOT, "dist")
 
 INCLUDE_DIRS = ["icons", "lib", "vendor", "workers"]
-INCLUDE_FILES = ["manifest.json", "background.js", "panel.html", "panel.css", "panel.js", "help.html", "help.js", "LICENSE"]
+INCLUDE_FILES = ["manifest.json", "background.js", "panel.html", "panel.css", "panel.js", "help.html", "help.js",
+                 "log.html", "log.js", "LICENSE"]
 
 
 def files():
@@ -56,6 +57,14 @@ def build(flavour):
                 z.writestr(rel, text)
             else:
                 z.write(src, rel)
+    # Every page and script referenced by the manifest or the pages must be in the zip.
+    with zipfile.ZipFile(out) as z:
+        names = set(z.namelist())
+    for page in ("panel.html", "log.html") + (() if flavour == "store" else ("help.html",)):
+        html = open(os.path.join(ROOT, page), encoding="utf-8").read()
+        for ref in re.findall(r'(?:src|href)="([^":#?]+\.(?:js|css|html))"', html):
+            if ref not in names and not (flavour == "store" and ref == "help.html"):
+                sys.exit("missing from %s build: %s (referenced by %s)" % (flavour, ref, page))
     print("built", os.path.relpath(out, ROOT), "(%d KB)" % (os.path.getsize(out) // 1024))
     return out
 

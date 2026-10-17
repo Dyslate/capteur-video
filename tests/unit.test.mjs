@@ -69,6 +69,8 @@ test("utilities", () => {
   assert.equal(safeName('Ma vidéo: "test" / 2'), "Ma vidéo test 2");
   assert.equal(asciiName("Été à Paris"), "Ete a Paris");
   assert.equal(cleanTitle("(3) Un reel sympa • Instagram"), "Un reel sympa");
+  assert.equal(cleanTitle("Ma vidéo - YouTube"), "Ma vidéo");
+  assert.equal(cleanTitle("Lab 06 · Pistes séparées (style Instagram)"), "Lab 06 · Pistes séparées (style Instagram)");
   assert.equal(formatDuration(3725), "1:02:05");
   const efg = Buffer.from(JSON.stringify({ vencode_tag: "dash_audio", xpv_asset_id: 42 })).toString("base64url");
   assert.deepEqual(decodeEfg(`https://scontent.cdninstagram.com/v/a.mp4?efg=${efg}`), { asset: 42, tag: "dash_audio" });

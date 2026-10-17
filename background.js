@@ -4,6 +4,11 @@
 import { isExcluded, isIgnoredRequest } from "./lib/policy.js";
 import { HELPER_HOST } from "./lib/config.js";
 import { decodeEfg } from "./lib/util.js";
+import { createLogger } from "./lib/log.js";
+
+const log = createLogger("bg");
+const net = log.scope("detect");
+const hlog = log.scope("helper");
 
 const HLS_PATH = /\.m3u8$/i;
 const DASH_PATH = /\.mpd$/i;
@@ -38,10 +43,11 @@ export function normalizeUrl(url) {
   return { url, ranged: false };
 }
 
+// Returns { item } for a usable media, { reason } when the request is skipped,
+// or null when it is clearly not media (not worth logging).
 function classify(d) {
-  if (!/^https?:/i.test(d.url) || d.statusCode >= 400) return null;
-  if (d.initiator?.startsWith("chrome-extension://")) return null;
-  if (isIgnoredRequest(d.url) || (d.initiator && isExcluded(d.initiator)) || (d.documentUrl && isExcluded(d.documentUrl))) return null;
+  if (!/^https?:/i.test(d.url)) return null;
+  if (d.initiator?.startsWith("chrome-extension://")) return null; // our own downloads
 
   const { url, ranged } = normalizeUrl(d.url);
   let path;
@@ -51,19 +57,27 @@ function classify(d) {
     return null;
   }
   const ct = header(d.responseHeaders, "content-type").toLowerCase().split(";")[0].trim();
+  const isMediaType = ct.startsWith("video/") || ct.startsWith("audio/") || ct.includes("mpegurl") || ct === "application/dash+xml";
+  const looksLikeMedia = isMediaType || d.type === "media" || HLS_PATH.test(path) || DASH_PATH.test(path) || FILE_PATH.test(path) || SEGMENT_PATH.test(path);
+  if (!looksLikeMedia) return null;
 
-  if (HLS_PATH.test(path) || ct.includes("mpegurl")) return { kind: "hls", url };
-  if (DASH_PATH.test(path) || ct === "application/dash+xml") return { kind: "dash", url };
-  if (SEGMENT_PATH.test(path) || ct === "video/mp2t") return null;
+  if (d.statusCode >= 400) return { reason: "HTTP " + d.statusCode };
+  if (isIgnoredRequest(d.url)) return { reason: "domaine ignoré ou exclu" };
+  if ((d.initiator && isExcluded(d.initiator)) || (d.documentUrl && isExcluded(d.documentUrl))) return { reason: "page exclue" };
 
-  const isMediaType = ct.startsWith("video/") || ct.startsWith("audio/");
+  if (HLS_PATH.test(path) || ct.includes("mpegurl")) return { item: { kind: "hls", url } };
+  if (DASH_PATH.test(path) || ct === "application/dash+xml") return { item: { kind: "dash", url } };
+  if (SEGMENT_PATH.test(path) || ct === "video/mp2t") return { reason: "segment (le manifeste suffit)", quiet: true };
+
   if (FILE_PATH.test(path) || (isMediaType && (d.type === "media" || ranged))) {
     const size = totalSize(d.responseHeaders);
-    if (!ranged && size !== null && size < MIN_FILE_SIZE) return null;
+    // The size floor filters segments and animated icons fetched by scripts. A source loaded
+    // by a <video>/<audio> element ("media") is what the user is watching: keep it whatever its size.
+    if (!ranged && d.type !== "media" && size !== null && size < MIN_FILE_SIZE) return { reason: `trop petit (${size} o)` };
     const efg = decodeEfg(url);
-    return { kind: "file", url, size, mime: ct || null, ranged, asset: efg?.asset ?? null, tag: efg?.tag || null };
+    return { item: { kind: "file", url, size, mime: ct || null, ranged, asset: efg?.asset ?? null, tag: efg?.tag || null } };
   }
-  return null;
+  return { reason: `type non géré (${ct || "sans content-type"}, ${d.type})` };
 }
 
 // Write queue: prevents two concurrent updates from overwriting each other.
@@ -78,7 +92,7 @@ function editTab(tabId, fn) {
       await chrome.storage.session.set({ [key]: next });
       await setBadge(tabId, next.length);
     })
-    .catch((e) => console.warn(e));
+    .catch((e) => log.error("échec de mise à jour de la liste", { tabId, error: e }));
   return queue;
 }
 
@@ -95,6 +109,7 @@ function addItems(tabId, items) {
         continue;
       }
       list.push({ ...it, time: Date.now() });
+      net.info(`ajouté (${it.kind}) onglet ${tabId}`, { url: it.url, size: it.size ?? null, from: it.from || "réseau", asset: it.asset ?? null, tag: it.tag ?? null });
       changed = true;
     }
     return changed ? list.slice(-MAX_PER_TAB) : null;
@@ -113,8 +128,10 @@ async function setBadge(tabId, n) {
 chrome.webRequest.onHeadersReceived.addListener(
   (d) => {
     if (d.tabId < 0) return;
-    const item = classify(d);
-    if (item) addItems(d.tabId, [item]);
+    const res = classify(d);
+    if (!res) return;
+    if (res.item) addItems(d.tabId, [res.item]);
+    else if (!res.quiet) net.debug("ignoré : " + res.reason, { url: d.url, type: d.type, status: d.statusCode });
   },
   { urls: ["<all_urls>"], types: ["media", "xmlhttprequest", "other"] },
   ["responseHeaders"]
@@ -123,7 +140,9 @@ chrome.webRequest.onHeadersReceived.addListener(
 // New page: start from scratch.
 chrome.webRequest.onBeforeRequest.addListener(
   (d) => {
-    if (d.tabId >= 0) editTab(d.tabId, () => []);
+    if (d.tabId < 0) return;
+    net.info(`nouvelle page dans l'onglet ${d.tabId} : liste vidée`, { url: d.url });
+    editTab(d.tabId, () => []);
   },
   { urls: ["<all_urls>"], types: ["main_frame"] }
 );
@@ -137,7 +156,10 @@ chrome.tabs.onUpdated.addListener((tabId, info) => {
   const url = info.url.split("#")[0];
   const previous = lastUrl.get(tabId);
   lastUrl.set(tabId, url);
-  if (previous && previous !== url) editTab(tabId, (list) => (list.length ? [] : null));
+  if (previous && previous !== url) {
+    net.info(`navigation interne dans l'onglet ${tabId} : liste vidée`, { from: previous, to: url });
+    editTab(tabId, (list) => (list.length ? [] : null));
+  }
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => {
@@ -178,17 +200,25 @@ const STAGES = {
 function startHelperJob({ url, mode, format, referer, title, quality, abr }) {
   const id = "h" + Date.now() + Math.random().toString(36).slice(2, 6);
   const job = { id, title: title || url, mode, format, quality, abr, url, status: "Démarrage du module…", progress: null, done: false, error: null, file: null };
+  hlog.info(`tâche ${id} : démarrage`, { url, format, quality, abr, mode });
   let port;
   try {
     port = chrome.runtime.connectNative(HELPER_HOST);
   } catch (e) {
+    hlog.error(`tâche ${id} : connexion au module impossible`, e);
     job.error = helperError(e.message);
     helperJobs.set(id, { job, port: null });
     saveHelperJobs();
     return id;
   }
   helperJobs.set(id, { job, port });
+  let lastLogged = -1;
   port.onMessage.addListener((m) => {
+    if (m.type !== "progress") hlog.info(`tâche ${id} : ${m.type}`, m);
+    else if (m.stage !== "download" || Math.floor((m.percent || 0) * 4) !== lastLogged) {
+      lastLogged = Math.floor((m.percent || 0) * 4); // every 25 % is enough for the log
+      hlog.debug(`tâche ${id} : ${m.stage} ${m.percent == null ? "" : Math.round(m.percent * 100) + " %"}`, { bytes: m.bytes, speed: m.speed });
+    }
     if (m.type === "progress") {
       const bytes = m.bytes ? ` ${(m.bytes / 1048576).toFixed(1)} MB` : "";
       job.status = (STAGES[m.stage] || "Traitement…") + (m.stage === "download" ? bytes : "");
@@ -208,7 +238,13 @@ function startHelperJob({ url, mode, format, referer, title, quality, abr }) {
     saveHelperJobs();
   });
   port.onDisconnect.addListener(() => {
-    if (!job.done && !job.error) job.error = helperError(chrome.runtime.lastError?.message);
+    const reason = chrome.runtime.lastError?.message;
+    if (!job.done && !job.error) {
+      job.error = helperError(reason);
+      hlog.error(`tâche ${id} : module déconnecté avant la fin`, { reason });
+    } else {
+      hlog.debug(`tâche ${id} : connexion fermée`, { reason: reason || null });
+    }
     saveHelperJobs();
   });
   port.postMessage({ cmd: "download", url, mode, format, referer, title, quality, abr });
@@ -219,6 +255,7 @@ function startHelperJob({ url, mode, format, referer, title, quality, abr }) {
 // Messages from the side panel
 chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   if (msg?.type === "add-items" && Number.isInteger(msg.tabId)) {
+    net.info(`« Forcer la détection » : ${(msg.items || []).length} élément(s) reçus de la page`, (msg.items || []).map((i) => ({ kind: i.kind, url: i.url, from: i.from })));
     const items = (msg.items || []).filter((it) => it && it.url && !isExcluded(it.url));
     addItems(msg.tabId, items).then(() => reply({ added: items.length }));
     return true;
@@ -230,6 +267,7 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   if (msg?.type === "helper-cancel") {
     const entry = helperJobs.get(msg.id);
     if (entry && !entry.job.done && !entry.job.error) {
+      hlog.warn(`tâche ${msg.id} : annulée par l'utilisateur`);
       entry.job.error = "téléchargement annulé";
       entry.port?.disconnect();
       saveHelperJobs();
@@ -246,5 +284,9 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
 // Clicking the toolbar icon opens the side panel.
 const openPanelOnClick = () =>
   chrome.sidePanel?.setPanelBehavior({ openPanelOnActionClick: true }).catch((e) => console.warn(e));
-chrome.runtime.onInstalled.addListener(openPanelOnClick);
+chrome.runtime.onInstalled.addListener((details) => {
+  log.info("extension installée / mise à jour", { reason: details.reason, version: chrome.runtime.getManifest().version });
+  openPanelOnClick();
+});
+log.debug("service worker démarré", { version: chrome.runtime.getManifest().version });
 chrome.runtime.onStartup.addListener(openPanelOnClick);

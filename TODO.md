@@ -37,6 +37,13 @@ Roadmap. Tick items as they land.
 - [x] Automatic engine choice (browser or helper), remembered choices
 - [x] Helper: `format` and `abr` options, remux to the chosen container
 
+### v2.3
+- [x] Diagnostic log (per-instance buffers, log page with filters, copy, export) and `helper.log`
+- [x] Test lab: synthetic media for every stream type, local server, `verify.py`
+- [x] Detection keeps `<video>`/`<audio>` sources of any size (short clips were dropped)
+- [x] Helper jobs run in their own folder: never delete or overwrite an existing file
+- [x] Direct-stream helper downloads are named after the page title
+
 ## Next
 
 ### Features
@@ -60,6 +67,6 @@ Roadmap. Tick items as they land.
 - [ ] Desktop notification when a long download finishes
 
 ### Project
-- [ ] End-to-end tests in the repo (Playwright + local test server)
+- [ ] Automate the test lab with Playwright in CI
 - [ ] Screenshots in the README
 - [ ] Publish the store build on the Chrome Web Store

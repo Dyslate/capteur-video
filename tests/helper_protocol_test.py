@@ -128,6 +128,20 @@ class HelperProtocolTest(unittest.TestCase):
         (reply,) = self.run_helper({"cmd": "download", "url": self.page, "format": "avi"})
         self.assertEqual(reply["type"], "error")
 
+    def test_never_deletes_or_overwrites(self):
+        """MP4, then MP3, then MP4 again of the same page: three files, the first MP4 kept."""
+        first = self.run_helper({"cmd": "download", "url": self.page, "format": "mp4", "title": "same"})[-1]
+        audio = self.run_helper({"cmd": "download", "url": self.page, "format": "mp3"})[-1]
+        second = self.run_helper({"cmd": "download", "url": self.page, "format": "mp4"})[-1]
+        for r in (first, audio, second):
+            self.assertEqual(r["type"], "done", r)
+        self.assertTrue(os.path.exists(first["file"]), "the first MP4 was deleted")
+        self.assertTrue(os.path.exists(audio["file"]))
+        self.assertNotEqual(first["file"], second["file"])
+        self.assertTrue(second["file"].endswith(" (2).mp4"), second["file"])
+        work = os.path.join(os.path.dirname(first["file"]), ".capteur-tmp")
+        self.assertEqual(os.listdir(work), [], "job folders must be cleaned up")
+
     def test_unknown_command(self):
         (reply,) = self.run_helper({"cmd": "nope"})
         self.assertEqual(reply["type"], "error")

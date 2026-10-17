@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lab 05 · DASH, vidéo et audio séparés</title>
+  <link rel="stylesheet" href="lab.css">
+</head>
+<body>
+<main>
+  <div class="crumb"><a href="index.html">← Labo de test</a></div>
+  <h1><span class="num">05</span> DASH, vidéo et audio séparés</h1>
+  <p class="muted">Un manifeste DASH (SegmentTemplate) avec la vidéo en 720p et 360p, et l'audio à part.</p>
+  
+  <h2>Résultat attendu dans le panneau</h2>
+  <ul class="expect">
+    <li>Une carte « Flux DASH » · 0:08 avec 720p et 360p.</li>
+    <li>MP4 : vidéo et son fusionnés dans le navigateur.</li>
+    <li>MP4 sans le son, M4A (piste d'origine), MP3, WAV : dans le navigateur.</li>
+  </ul>
+  <h2>Journal de la page</h2>
+  <pre id="lablog"></pre>
+</main>
+<script type="module">
+import { labLog, labFetch, watchMedia, efg } from "./lab.js";
+const { body } = await labFetch("media/dash/manifest.mpd");
+labLog("manifeste : " + body.byteLength + " o");
+await labFetch("media/dash/init-stream0.m4s");
+</script>
+</body>
+</html>

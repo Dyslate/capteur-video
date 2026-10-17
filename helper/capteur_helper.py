@@ -18,12 +18,16 @@ DRM-protected services are refused, both here and in the extension.
 """
 
 import json
+import logging
+import logging.handlers
 import os
 import platform
+import re
 import shutil
 import struct
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import traceback
@@ -55,6 +59,25 @@ if os.name == "nt":
     msvcrt.setmode(_PROTO_OUT.fileno(), os.O_BINARY)
     msvcrt.setmode(_PROTO_IN.fileno(), os.O_BINARY)
 
+# ---------- log file ----------
+# Everything (commands, yt-dlp verbose output, errors) goes to helper.log in the app folder.
+
+def _log_path():
+    if os.name == "nt":
+        base = os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), APP_DIR_NAME)
+    else:
+        base = os.path.join(os.path.expanduser("~"), APP_DIR_NAME)
+    os.makedirs(base, exist_ok=True)
+    return os.path.join(base, "helper.log")
+
+
+LOG_FILE = _log_path()
+log = logging.getLogger("capteur")
+log.setLevel(logging.DEBUG)
+_handler = logging.handlers.RotatingFileHandler(LOG_FILE, maxBytes=2_000_000, backupCount=2, encoding="utf-8")
+_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)-7s %(message)s"))
+log.addHandler(_handler)
+
 _send_lock = threading.Lock()
 _connected = True
 
@@ -65,6 +88,8 @@ def send(message):
     global _connected
     if not _connected:
         return
+    if message.get("type") != "progress":
+        log.debug("-> %s", json.dumps(message, ensure_ascii=False)[:800])
     data = json.dumps(message).encode("utf-8")
     with _send_lock:
         try:
@@ -138,6 +163,17 @@ def ytdlp_version():
         return None
 
 
+def unique_path(path):
+    """path, or "name (2).ext", "name (3).ext"… so an existing file is never replaced."""
+    if not os.path.exists(path):
+        return path
+    base, ext = os.path.splitext(path)
+    n = 2
+    while os.path.exists("%s (%d)%s" % (base, n, ext)):
+        n += 1
+    return "%s (%d)%s" % (base, n, ext)
+
+
 def is_drm(url):
     host = (urlparse(url).hostname or "").lower()
     return any(host == d or host.endswith("." + d) for d in DRM_DOMAINS)
@@ -154,6 +190,7 @@ def cmd_ping(_msg):
         "jsRuntime": js_runtime(),
         "downloadDir": download_dir(),
         "platform": platform.system(),
+        "logFile": LOG_FILE,
     })
 
 
@@ -161,15 +198,17 @@ class _Logger:
     """Forwards yt-dlp warnings and errors to the extension, drops the rest."""
 
     def debug(self, msg):
-        pass
+        log.debug("yt-dlp: %s", msg)
 
     def info(self, msg):
-        pass
+        log.info("yt-dlp: %s", msg)
 
     def warning(self, msg):
+        log.warning("yt-dlp: %s", msg)
         send({"type": "log", "level": "warning", "message": str(msg)[:500]})
 
     def error(self, msg):
+        log.error("yt-dlp: %s", msg)
         send({"type": "log", "level": "error", "message": str(msg)[:500]})
 
 
@@ -219,12 +258,29 @@ def cmd_download(msg):
             stage = "audio" if "ExtractAudio" in name else "merge" if "Merger" in name else "remux" if "Remux" in name else "process"
             send({"type": "progress", "stage": stage, "percent": None})
 
+    # For a direct stream URL (manifest or file) yt-dlp only knows the file name,
+    # so the page title sent by the extension makes a better file name.
+    template = "%(title).150B [%(id)s].%(ext)s"
+    path_part = urlparse(url).path.lower()
+    if msg.get("title") and re.search(r"\.(m3u8|mpd|mp4|m4a|m4v|webm|mov|ts|mp3)$", path_part):
+        safe = re.sub(r'[\\/:*?"<>|\x00-\x1f]', " ", str(msg["title"])).strip()[:150] or "video"
+        template = safe.replace("%", "%%") + ".%(ext)s"
+        log.debug("direct stream URL: file named after the page title %r", safe)
+
+    # Each job works in its own folder, then moves the result next to the user's files.
+    # Without this, extracting audio deletes an intermediate video that has the same name
+    # as an MP4 downloaded earlier, and a second download of the same title is skipped.
+    work_root = os.path.join(download_dir(), ".capteur-tmp")
+    os.makedirs(work_root, exist_ok=True)
+    work = tempfile.mkdtemp(prefix="job-", dir=work_root)
+
     options = {
-        "outtmpl": os.path.join(download_dir(), "%(title).150B [%(id)s].%(ext)s"),
+        "outtmpl": os.path.join(work, template),
         "noplaylist": True,
         "quiet": True,
         "no_warnings": False,
         "noprogress": True,
+        "verbose": True,  # the details only go to helper.log, through the logger
         "logger": _Logger(),
         "progress_hooks": [progress_hook],
         "postprocessor_hooks": [postprocessor_hook],
@@ -268,6 +324,8 @@ def cmd_download(msg):
     else:
         return send({"type": "error", "message": "Format inconnu : %s" % fmt})
 
+    log.info("download: url=%s format=%s quality=%s abr=%s ffmpeg=%s", url, fmt, msg.get("quality"), abr, ffmpeg)
+    log.debug("yt-dlp options: %s", {k: v for k, v in options.items() if k not in ("logger", "progress_hooks", "postprocessor_hooks")})
     try:
         with yt_dlp.YoutubeDL(options) as ydl:
             info = ydl.extract_info(url, download=True)
@@ -277,12 +335,20 @@ def cmd_download(msg):
             path = downloads[-1].get("filepath") if downloads else None
             if not path:
                 path = os.path.splitext(ydl.prepare_filename(info))[0] + "." + fmt
-        send({"type": "done", "file": path, "title": info.get("title")})
+        if not path or not os.path.exists(path):
+            raise RuntimeError("fichier final introuvable après le téléchargement")
+        final = unique_path(os.path.join(download_dir(), os.path.basename(path)))
+        shutil.move(path, final)
+        log.info("done: %s (%s bytes)", final, os.path.getsize(final))
+        send({"type": "done", "file": final, "title": info.get("title")})
     except Exception as e:  # yt-dlp raises many error types; report them all
+        log.exception("download failed")
         message = str(e)
         if message.startswith("ERROR: "):
             message = message[7:]
         send({"type": "error", "message": message[:600]})
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
 
 
 def cmd_reveal(msg):
@@ -311,7 +377,18 @@ def cmd_update(_msg):
     send({"type": "updated", "ytdlp": out.stdout.strip() or None})
 
 
-COMMANDS = {"ping": cmd_ping, "download": cmd_download, "reveal": cmd_reveal, "update": cmd_update}
+def cmd_tail(msg):
+    """Returns the end of helper.log (shown on the extension's log page)."""
+    lines = max(1, min(int(msg.get("lines") or 200), 2000))
+    try:
+        with open(LOG_FILE, encoding="utf-8", errors="replace") as f:
+            text = "".join(f.readlines()[-lines:])
+    except OSError:
+        text = ""
+    send({"type": "tail", "path": LOG_FILE, "text": text})
+
+
+COMMANDS = {"ping": cmd_ping, "download": cmd_download, "reveal": cmd_reveal, "update": cmd_update, "tail": cmd_tail}
 
 
 def main():
@@ -322,6 +399,7 @@ def main():
             return
         if msg is None:
             return  # the browser closed the connection
+        log.info("<- %s", json.dumps(msg, ensure_ascii=False)[:800])
         handler = COMMANDS.get(msg.get("cmd"))
         if not handler:
             send({"type": "error", "message": "Commande inconnue : %s" % msg.get("cmd")})
@@ -329,8 +407,13 @@ def main():
         try:
             handler(msg)
         except Exception:
+            log.exception("command %s failed", msg.get("cmd"))
             send({"type": "error", "message": traceback.format_exc()[-600:]})
 
 
 if __name__ == "__main__":
-    main()
+    log.info("helper %s started (python %s, %s)", VERSION, platform.python_version(), platform.platform())
+    try:
+        main()
+    finally:
+        log.info("helper exiting")

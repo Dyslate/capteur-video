@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Journal · Capteur vidéo</title>
+  <link rel="stylesheet" href="panel.css">
+  <style>
+    body { display: block; }
+    .doc { max-width: 1100px; margin: 0 auto; padding: 24px 20px 60px; }
+    .doc h1 { font-size: 20px; margin: 0 0 4px; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 16px 0 12px; }
+    .toolbar input { flex: 1 1 220px; font: inherit; color: var(--text); background: var(--surface);
+      border: 1px solid var(--border); border-radius: 7px; padding: 6px 9px; }
+    #entries { font: 12px/1.5 ui-monospace, "Cascadia Code", Menlo, monospace; background: var(--surface);
+      border: 1px solid var(--border); border-radius: 10px; padding: 8px 0; overflow-x: auto; }
+    .entry { padding: 2px 12px; white-space: pre-wrap; word-break: break-word; }
+    .entry.warn { color: #b35c00; }
+    .entry.error { color: var(--error); font-weight: 600; }
+    .entry.debug { color: var(--muted); }
+    @media (prefers-color-scheme: dark) { .entry.warn { color: #ffb347; } }
+    h2 { margin-top: 28px; }
+    #helper-log { white-space: pre-wrap; font: 12px/1.5 ui-monospace, Menlo, monospace; background: var(--surface);
+      border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; max-height: 420px; overflow: auto; }
+  </style>
+</head>
+<body>
+  <main class="doc">
+    <h1>Journal de diagnostic</h1>
+    <p class="muted">Tout ce que l'extension a détecté, ignoré, téléchargé ou raté depuis le démarrage de Chrome. En cas de problème, cliquez sur « Copier » et collez le journal dans votre message.</p>
+
+    <div class="toolbar">
+      <select id="level" aria-label="Niveau">
+        <option value="debug">Tout (détails compris)</option>
+        <option value="info" selected>Infos, avertissements, erreurs</option>
+        <option value="warn">Avertissements et erreurs</option>
+        <option value="error">Erreurs seulement</option>
+      </select>
+      <input id="filter" type="search" placeholder="Filtrer (ex. tâche 3, sonde, instagram…)" aria-label="Filtrer">
+      <button id="copy">Copier</button>
+      <button id="export" class="ghost">Exporter (.txt)</button>
+      <button id="clear" class="ghost">Effacer</button>
+    </div>
+    <p id="count" class="note"></p>
+    <div id="entries"></div>
+
+    <h2>Journal du module local</h2>
+    <p class="muted" id="helper-path">Fin du fichier helper.log (yt-dlp détaillé).</p>
+    <div class="row"><button id="helper-refresh" class="ghost">Actualiser</button></div>
+    <pre id="helper-log">…</pre>
+  </main>
+  <script type="module" src="log.js"></script>
+</body>
+</html>

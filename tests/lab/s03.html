@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lab 03 · HLS en TS, deux qualités</title>
+  <link rel="stylesheet" href="lab.css">
+</head>
+<body>
+<main>
+  <div class="crumb"><a href="index.html">← Labo de test</a></div>
+  <h1><span class="num">03</span> HLS en TS, deux qualités</h1>
+  <p class="muted">Une playlist maître HLS (720p et 360p) avec des segments .ts, chargée comme le ferait un lecteur.</p>
+  
+  <h2>Résultat attendu dans le panneau</h2>
+  <ul class="expect">
+    <li>Une carte « Flux HLS » avec 2 qualités (720p, 360p).</li>
+    <li>MP4 : via le module si installé (vrai .mp4), sinon fichier .ts (lisible avec VLC).</li>
+    <li>MP3 : conversion dans le navigateur (Chrome).</li>
+  </ul>
+  <h2>Journal de la page</h2>
+  <pre id="lablog"></pre>
+</main>
+<script type="module">
+import { labLog, labFetch, watchMedia, efg } from "./lab.js";
+const { body } = await labFetch("media/hls-ts/master.m3u8");
+labLog("playlist maître :\n" + new TextDecoder().decode(body));
+await labFetch("media/hls-ts/720/index.m3u8");
+await labFetch("media/hls-ts/720/s000.ts");
+</script>
+</body>
+</html>

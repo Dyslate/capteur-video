@@ -5,7 +5,9 @@ a page by downloading big.mp4 from the same host, reports progress through the
 hooks, and converts to MP3 with the real ffmpeg when asked.
 """
 
+import html
 import os
+import re
 import subprocess
 import urllib.request
 from types import SimpleNamespace
@@ -29,14 +31,33 @@ class YoutubeDL:
             hook(data)
 
     def prepare_filename(self, info):
-        return self.params["outtmpl"].replace("%(title).150B", info["title"]).replace("%(id)s", info["id"]).replace("%(ext)s", info["ext"])
+        out = self.params["outtmpl"].replace("%(title).150B", info["title"]).replace("%(id)s", info["id"]).replace("%(ext)s", info["ext"])
+        return out.replace("%%", "%")
+
+    def _extract(self, url):
+        """Mimics yt-dlp's generic extractor: page <title> and first <video>/<source>."""
+        path = url.split("?")[0]
+        if re.search(r"\.(m3u8|mpd)$", path):
+            return "manifest", urljoin(url, "../direct.mp4")  # lab layout: media/<kind>/manifest
+        if re.search(r"\.(mp4|m4a|webm)$", path) and not path.endswith("/big.mp4"):
+            return os.path.splitext(os.path.basename(path))[0], url  # direct file: download it as is
+        if not re.search(r"\.(mp4|m4a|webm)$", path):
+            try:
+                page = urllib.request.urlopen(url).read().decode("utf-8", "replace")
+                title = re.search(r"<title>(.*?)</title>", page, re.S)
+                src = re.search(r'<(?:video|source)[^>]+src="([^"]+)"', page)
+                if src:
+                    return (html.unescape(title.group(1).strip()) if title else "page"), urljoin(url, src.group(1))
+            except Exception:
+                pass
+        return "Video de test", urljoin(url, "big.mp4")
 
     def extract_info(self, url, download=True):
         # Echo the format preferences so tests can check what the helper asked for.
         if self.params.get("logger") and self.params.get("format_sort"):
             self.params["logger"].warning("format_sort=" + ",".join(self.params["format_sort"]))
-        media = urljoin(url, "big.mp4")
-        info = {"id": "fake123", "title": "Video de test", "ext": "mp4"}
+        title, media = self._extract(url)
+        info = {"id": "fake123", "title": title, "ext": "mp4"}
         path = self.prepare_filename(info)
         with urllib.request.urlopen(media) as r:
             total = int(r.headers.get("content-length") or 0)

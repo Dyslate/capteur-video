@@ -24,10 +24,17 @@ Roadmap. Tick items as they land.
 - [x] Site policy with `personal` / `store` builds
 - [x] Packaging script, unit tests, MIT licence
 
+### v2.1
+- [x] Quality choice for helper downloads (best / 1080p / 720p / 480p)
+- [x] "Update yt-dlp" button on the help page
+- [x] Clear the list on in-page navigation (SPA sites such as Instagram)
+- [x] `Referer` rule on probe requests too
+- [x] GitHub Actions CI (syntax checks, unit tests, helper protocol tests, zips as artifacts)
+
 ## Next
 
 ### Features
-- [ ] Choose the quality for helper downloads (best / 1080p / 720p / audio bitrate)
+- [ ] MP3 bitrate choice (128 / 192 / 320 kbps)
 - [ ] Record live streams continuously, with a Stop button
 - [ ] Subtitles (`.vtt`) download
 - [ ] Mux HLS TS segments into MP4 in the browser (TS demuxer)
@@ -39,10 +46,7 @@ Roadmap. Tick items as they land.
 - [ ] Stream large downloads to disk (File System Access API) instead of memory
 - [ ] Resume interrupted downloads
 - [ ] Refresh expired segment URLs by re-reading the playlist
-- [ ] Clear the list on in-page navigation (SPA sites such as Instagram)
 - [ ] Better pairing of audio/video tracks when several reels play at once
-- [ ] Apply the `Referer` rule to probe requests too
-- [ ] Helper: update yt-dlp from the panel (the `update` command already exists)
 
 ### Interface
 - [ ] Thumbnails and real video titles in the media cards
@@ -52,6 +56,5 @@ Roadmap. Tick items as they land.
 
 ### Project
 - [ ] End-to-end tests in the repo (Playwright + local test server)
-- [ ] GitHub Actions CI (unit tests + build)
 - [ ] Screenshots in the README
 - [ ] Publish the store build on the Chrome Web Store

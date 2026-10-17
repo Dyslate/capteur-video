@@ -7,7 +7,7 @@ each message is a 4-byte little-endian length followed by UTF-8 JSON.
 Commands received from the extension:
   {"cmd": "ping"}
       -> {"type": "pong", "version", "ytdlp", "ffmpeg", "jsRuntime", "downloadDir"}
-  {"cmd": "download", "url", "mode": "video"|"mp3", "referer"?, "title"?}
+  {"cmd": "download", "url", "mode": "video"|"mp3", "referer"?, "title"?, "quality"?: 1080|720|480}
       -> {"type": "progress", ...} (many), then {"type": "done", "file"} or {"type": "error", "message"}
   {"cmd": "reveal", "path"}       -> opens the file manager on the file
   {"cmd": "update"}               -> updates yt-dlp, then {"type": "updated", "ytdlp"}
@@ -242,9 +242,12 @@ def cmd_download(msg):
             {"key": "FFmpegMetadata"},
         ]
     else:
-        # Prefer H.264 + AAC so the MP4 plays everywhere, then the best resolution.
+        # Prefer H.264 + AAC so the MP4 plays everywhere, then the best resolution
+        # up to the requested height ("res:720" picks the largest height <= 720).
+        quality = msg.get("quality")
+        resolution = "res:%d" % int(quality) if str(quality or "").isdigit() else "res"
         options["format"] = "bv*+ba/b" if ffmpeg else "b"
-        options["format_sort"] = ["vcodec:h264", "res", "acodec:aac"]
+        options["format_sort"] = ["vcodec:h264", resolution, "acodec:aac"]
         options["merge_output_format"] = "mp4"
 
     try:

@@ -1,5 +1,7 @@
 # Capteur vidéo
 
+[![CI](https://github.com/Dyslate/capteur-video/actions/workflows/ci.yml/badge.svg)](https://github.com/Dyslate/capteur-video/actions/workflows/ci.yml)
+
 A Chrome extension that spots the videos playing on the pages you visit and saves them as **MP4** or **MP3**, from a side panel.
 
 - Works out of the box on Instagram, Facebook, Vimeo and most sites (direct MP4, HLS, DASH, separate audio/video tracks).
@@ -50,7 +52,7 @@ brew install deno                               # macOS
 curl -fsSL https://deno.land/install.sh | sh    # Linux
 ```
 
-Files saved by the helper go to `Downloads/Capteur video`. Run the installer again to update yt-dlp; `python helper/install.py --uninstall` removes everything.
+Files saved by the helper go to `Downloads/Capteur video`. The helper card has a quality picker (best, 1080p, 720p, 480p). When a site changes and downloads start failing, use **Mettre à jour yt-dlp** on the help page (or run the installer again); `python helper/install.py --uninstall` removes everything.
 
 The extension has a fixed ID (`gkbhlagbekepghjaegeolhjkmbnkcjpn`, from the `key` in `manifest.json`) so the helper can trust it.
 
@@ -91,8 +93,11 @@ The Chrome Web Store rejects extensions that facilitate YouTube downloads, which
 ## Development
 
 ```
-npm test     # unit tests (Node 18+, ffmpeg for the MP4 tests)
+npm test                              # unit tests (Node 18+, ffmpeg for the MP4 tests)
+python3 tests/helper_protocol_test.py # helper protocol, offline (yt-dlp test double)
 ```
+
+GitHub Actions runs both on every push and attaches the built zips as artifacts.
 
 The end-to-end behaviour was checked in headless Chromium against synthetic streams: direct MP4, HLS (TS and fMP4), DASH (SegmentTemplate and SegmentBase), Instagram-style split tracks with `bytestart`/`byteend`/`efg` parameters, manifests embedded in page JSON, encrypted streams (refused), and the local helper over native messaging.
 

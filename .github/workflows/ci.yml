@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ffmpeg (MP4 fixtures)
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Syntax check (JavaScript)
+        run: for f in *.js lib/*.js workers/*.js; do node --check "$f"; done
+
+      - name: Syntax check (Python)
+        run: python -m py_compile helper/*.py scripts/*.py
+
+      - name: Manifest is valid JSON
+        run: python -c "import json; json.load(open('manifest.json', encoding='utf-8'))"
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Helper protocol (with the yt-dlp test double)
+        run: python tests/helper_protocol_test.py
+
+      - name: Build zips
+        run: python scripts/build.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: capteur-video-zips
+          path: dist/*.zip

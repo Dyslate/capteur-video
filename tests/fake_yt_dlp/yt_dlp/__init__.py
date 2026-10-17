@@ -32,6 +32,9 @@ class YoutubeDL:
         return self.params["outtmpl"].replace("%(title).150B", info["title"]).replace("%(id)s", info["id"]).replace("%(ext)s", info["ext"])
 
     def extract_info(self, url, download=True):
+        # Echo the format preferences so tests can check what the helper asked for.
+        if self.params.get("logger") and self.params.get("format_sort"):
+            self.params["logger"].warning("format_sort=" + ",".join(self.params["format_sort"]))
         media = urljoin(url, "big.mp4")
         info = {"id": "fake123", "title": "Video de test", "ext": "mp4"}
         path = self.prepare_filename(info)

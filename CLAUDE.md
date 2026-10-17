@@ -6,7 +6,7 @@ Context for Claude sessions working on this repository.
 
 **Capteur vidéo**: a Manifest V3 Chrome extension that detects the videos of the active tab and saves them as MP4 or MP3 from a side panel. An optional local helper (Python + yt-dlp, over native messaging) covers YouTube and thousands of other sites.
 
-- Owner: Dyslate (GitHub `Dyslate/capteur-video`). Commit as **Dyslate** only, no co-author trailers.
+- Owner: Dyslate (GitHub `Dyslate/capteur-video`). Commit as **Dyslate <Dyslate@gmail.com>** only, no co-author trailers.
 - **UI text in French. Code comments, README, TODO and this file in English.**
 - No build step and no npm dependencies: the folder loads as-is with "Load unpacked". Only vendored file: `vendor/lame.min.js` (lamejs, LGPL).
 
@@ -39,6 +39,7 @@ Host name: `com.dyslate.capteur_video`. Extension ID: `gkbhlagbekepghjaegeolhjkm
 
 ```bash
 npm test                         # unit tests (needs ffmpeg for MP4 tests)
+python3 tests/helper_protocol_test.py  # helper protocol, offline
 for f in *.js lib/*.js; do node --check "$f"; done
 python3 -m py_compile helper/*.py
 python3 scripts/build.py         # dist/*.zip

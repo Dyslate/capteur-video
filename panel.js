@@ -126,8 +126,20 @@ function pageCard(tab, helper, onlyHelper) {
         el("button", { class: "ghost", onclick: async () => { await pingHelper({ force: true }); scheduleRefresh(0); } }, "Revérifier"))
     );
   }
+  // Remembered per viewer; storage can be unavailable, so stay defensive.
+  let saved = "";
+  try {
+    saved = localStorage.getItem("helperQuality") || "";
+  } catch {}
+  const quality = el(
+    "select",
+    { "aria-label": "Qualité", onchange: () => { try { localStorage.setItem("helperQuality", quality.value); } catch {} } },
+    [["", "Meilleure qualité"], ["1080", "1080p max"], ["720", "720p max"], ["480", "480p max"]].map(([v, label]) =>
+      el("option", { value: v, selected: v === saved }, label)
+    )
+  );
   const start = (mode) => {
-    startHelperJob({ url: tab.url, mode, referer: tab.url, title: U.cleanTitle(tab.title) });
+    startHelperJob({ url: tab.url, mode, referer: tab.url, title: U.cleanTitle(tab.title), quality: quality.value ? Number(quality.value) : null });
     toast("Téléchargement confié au module");
   };
   const warnings = [];
@@ -139,6 +151,7 @@ function pageCard(tab, helper, onlyHelper) {
     el("div", { class: "card-head" }, el("strong", {}, title), el("span", { class: "badge" }, "yt-dlp " + (helper.ytdlp || "?"))),
     el("div", { class: "sub" }, sub),
     el("div", { class: "row" },
+      quality,
       el("button", { class: onlyHelper ? "" : "ghost", onclick: () => start("video") }, "Vidéo MP4"),
       el("button", { class: "ghost", onclick: () => start("mp3") }, "MP3")),
     ...warnings.map((w) => el("p", { class: "note" }, w))
@@ -239,16 +252,19 @@ async function buildMedias(items) {
 
 // Probes an MP4 file to find out whether it holds video, audio, or both.
 async function probeFile(url) {
-  return cached("probe:" + url, async () => {
-    let head = await fetchHead(url, 256 * 1024);
-    if (sniff(head) !== "mp4") return { ok: false, container: sniff(head) };
-    let p = probe(head);
-    if (!p.ok && p.needed && p.needed <= 8 * 1024 * 1024 && head.length >= 256 * 1024) {
-      head = await fetchHead(url, p.needed);
-      p = probe(head);
-    }
-    return { ...p, container: "mp4" };
-  });
+  // Probe requests carry the page's Referer too, like the downloads themselves.
+  return cached("probe:" + url, () =>
+    withReferer(state.tab?.url || "", [url], async () => {
+      let head = await fetchHead(url, 256 * 1024);
+      if (sniff(head) !== "mp4") return { ok: false, container: sniff(head) };
+      let p = probe(head);
+      if (!p.ok && p.needed && p.needed <= 8 * 1024 * 1024 && head.length >= 256 * 1024) {
+        head = await fetchHead(url, p.needed);
+        p = probe(head);
+      }
+      return { ...p, container: "mp4" };
+    })
+  );
 }
 
 async function mediasFromFiles(files) {

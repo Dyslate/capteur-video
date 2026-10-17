@@ -128,7 +128,22 @@ chrome.webRequest.onBeforeRequest.addListener(
   { urls: ["<all_urls>"], types: ["main_frame"] }
 );
 
-chrome.tabs.onRemoved.addListener((tabId) => chrome.storage.session.remove("tab:" + tabId));
+// In-page navigation (Instagram, Facebook… switch reels with history.pushState):
+// the URL changes without a new main_frame request, so clear the list here too.
+// The hash is ignored: it often changes without loading anything new.
+const lastUrl = new Map(); // tabId -> URL without hash
+chrome.tabs.onUpdated.addListener((tabId, info) => {
+  if (!info.url) return;
+  const url = info.url.split("#")[0];
+  const previous = lastUrl.get(tabId);
+  lastUrl.set(tabId, url);
+  if (previous && previous !== url) editTab(tabId, (list) => (list.length ? [] : null));
+});
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+  lastUrl.delete(tabId);
+  chrome.storage.session.remove("tab:" + tabId);
+});
 
 // ---------- local helper jobs (yt-dlp) ----------
 // They run here rather than in the panel: the native port keeps the service worker
@@ -159,7 +174,7 @@ const STAGES = {
   process: "Traitement…",
 };
 
-function startHelperJob({ url, mode, referer, title }) {
+function startHelperJob({ url, mode, referer, title, quality }) {
   const id = "h" + Date.now() + Math.random().toString(36).slice(2, 6);
   const job = { id, title: title || url, mode, url, status: "Démarrage du module…", progress: null, done: false, error: null, file: null };
   let port;
@@ -195,7 +210,7 @@ function startHelperJob({ url, mode, referer, title }) {
     if (!job.done && !job.error) job.error = helperError(chrome.runtime.lastError?.message);
     saveHelperJobs();
   });
-  port.postMessage({ cmd: "download", url, mode, referer, title });
+  port.postMessage({ cmd: "download", url, mode, referer, title, quality });
   saveHelperJobs();
   return id;
 }

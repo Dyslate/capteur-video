@@ -1,6 +1,6 @@
 {
   "name": "capteur-video",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
   "description": "Chrome extension that detects and saves videos as MP4 or MP3.",
   "type": "module",

@@ -141,6 +141,33 @@ const Util = {
     return n || "video";
   },
 
+  // Variante sans accents ni caractères non ASCII, pour les systèmes qui les refusent.
+  asciiName(s) {
+    return Util.safeName(
+      String(s || "")
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "")
+        .replace(/[^\x20-\x7e]/g, " ")
+    );
+  },
+
+  // Lance un téléchargement ; si Chrome refuse le nom de fichier,
+  // réessaie sans accents, puis avec un nom générique.
+  async download(url, base, ext) {
+    const names = [...new Set([Util.safeName(base), Util.asciiName(base), "video"])];
+    let lastError;
+    for (const name of names) {
+      const filename = `${name}.${ext}`;
+      try {
+        return { id: await chrome.downloads.download({ url, filename }), filename };
+      } catch (e) {
+        lastError = e;
+        if (!/filename/i.test(e.message)) throw e;
+      }
+    }
+    throw lastError;
+  },
+
   formatBytes(n) {
     if (n == null) return "";
     const units = ["o", "Ko", "Mo", "Go"];

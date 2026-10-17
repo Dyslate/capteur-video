@@ -158,9 +158,7 @@ async function main() {
   const ext = guessExt(segs, parts);
   const blob = new Blob(parts, { type: MIME[ext] });
   const blobUrl = URL.createObjectURL(blob);
-  const filename = Util.safeName(label ? `${title} - ${label}` : title) + "." + ext;
-
-  const id = await chrome.downloads.download({ url: blobUrl, filename });
+  const { id, filename } = await Util.download(blobUrl, label ? `${title} - ${label}` : title, ext);
   busy = false;
   $("cancel").hidden = true;
   setStatus(`Terminé : ${filename} (${Util.formatBytes(blob.size)})`, "ok");

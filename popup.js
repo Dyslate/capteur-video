@@ -138,7 +138,7 @@ async function main() {
       {
         onclick: async () => {
           try {
-            await chrome.downloads.download({ url: v.url, filename: Util.safeName(title) + "." + ext });
+            await Util.download(v.url, title, ext);
             btn.textContent = "Téléchargement lancé ✓";
             btn.disabled = true;
           } catch (e) {

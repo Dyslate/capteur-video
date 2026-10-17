@@ -27,6 +27,7 @@ Paramètres passés à `downloader.html` par l'URL : `url`, `title`, `page` (URL
 - Pas de code distant, pas de `eval`, pas de script inline (CSP de Manifest V3).
 - Pas de dépendance ni d'étape de build : l'extension se charge telle quelle avec « Charger l'extension non empaquetée ».
 - Les permissions restent minimales ; toute nouvelle permission doit être justifiée dans le README.
+- Toujours télécharger via `Util.download(url, nom, ext)` et jamais `chrome.downloads.download` en direct : Chrome refuse certains noms (accents sous une locale non UTF-8, par exemple) et `Util.download` réessaie sans accents puis avec `video`.
 
 ## Vérifier ses changements
 

@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Installer le module local · Capteur vidéo</title>
+  <link rel="stylesheet" href="panel.css">
+  <style>
+    body { display: block; }
+    .doc { max-width: 680px; margin: 0 auto; padding: 32px 20px 60px; }
+    .doc h1 { font-size: 22px; margin: 0 0 6px; }
+    .doc h2 { font-size: 13px; margin-top: 28px; }
+    .doc ol { padding-left: 20px; }
+    .doc li { margin: 10px 0; }
+    code, pre { font-family: ui-monospace, "Cascadia Code", Menlo, monospace; font-size: 12px; }
+    pre { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; overflow-x: auto; }
+    .status { margin-top: 14px; }
+  </style>
+</head>
+<body>
+  <main class="doc">
+    <h1>Installer le module local</h1>
+    <p class="muted">Le module (yt-dlp + ffmpeg) permet de télécharger YouTube et des milliers d'autres sites, en MP4 ou en MP3. Il s'installe une seule fois.</p>
+
+    <section class="card status">
+      <div class="card-head"><strong>État du module</strong><button id="check" class="ghost">Revérifier</button></div>
+      <p id="status" class="note">Vérification…</p>
+    </section>
+
+    <h2>Windows</h2>
+    <ol>
+      <li>Installez <strong>Python 3</strong> depuis python.org (cochez « Add python.exe to PATH ») ou depuis le Microsoft Store.</li>
+      <li>Téléchargez le projet : <a id="zip" href="#" target="_blank" rel="noopener">archive .zip du dépôt GitHub</a>, puis décompressez-la.</li>
+      <li>Ouvrez le dossier <code>helper</code> et double-cliquez sur <code>install-windows.bat</code>.</li>
+      <li>Pour YouTube, installez Deno :
+        <pre>winget install DenoLand.Deno</pre></li>
+      <li>Redémarrez Chrome.</li>
+    </ol>
+
+    <h2>macOS / Linux</h2>
+    <ol>
+      <li>Vérifiez que Python 3.9 ou plus est installé : <code>python3 --version</code>.</li>
+      <li>Dans le dossier <code>helper</code> du projet :
+        <pre>sh install.sh</pre></li>
+      <li>Pour YouTube, installez Deno :
+        <pre>brew install deno            # macOS
+curl -fsSL https://deno.land/install.sh | sh   # Linux</pre></li>
+      <li>Redémarrez Chrome.</li>
+    </ol>
+
+    <h2>Bon à savoir</h2>
+    <ul>
+      <li>Les fichiers vont dans <code>Téléchargements/Capteur video</code>.</li>
+      <li>Si YouTube change et que le téléchargement échoue, relancez l'installateur : il met yt-dlp à jour.</li>
+      <li>Désinstallation : <code>python install.py --uninstall</code>.</li>
+      <li>Identifiant de l'extension : <code id="ext-id"></code></li>
+      <li>Les plateformes protégées par DRM (Netflix, Disney+, Spotify…) restent exclues : leurs vidéos sont chiffrées.</li>
+    </ul>
+  </main>
+  <script type="module" src="help.js"></script>
+</body>
+</html>

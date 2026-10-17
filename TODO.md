@@ -1,52 +1,57 @@
 # TODO
 
-Feuille de route de l'extension. Cochez au fur et à mesure.
+Roadmap. Tick items as they land.
 
-## Fait
+## Done
 
-- [x] Détection des vidéos directes (`.mp4`, `.webm`, `.mov`, `.m4v`)
-- [x] Détection des flux HLS (`.m3u8`) par extension et par `Content-Type`
-- [x] Choix de la qualité depuis une playlist maître
-- [x] Téléchargement parallèle des segments avec nouvelles tentatives
-- [x] Assemblage en `.ts`, `.mp4` (fMP4) ou `.aac`
-- [x] Prise en charge de `EXT-X-MAP` et `EXT-X-BYTERANGE`
-- [x] Pistes audio séparées proposées à part
-- [x] Ajout du `Referer` de la page d'origine
-- [x] Flux chiffrés ou DRM signalés et ignorés
-- [x] Badge avec le nombre de flux par onglet
-- [x] Thème clair et sombre
+### v1
+- [x] Network detection of direct videos and HLS streams
+- [x] HLS quality picker, parallel segment download with retries
+- [x] `EXT-X-MAP` and `EXT-X-BYTERANGE` support
+- [x] Source page `Referer` on the extension's requests
+- [x] Encrypted / DRM streams flagged and refused
+- [x] Fallback file names when Chrome rejects accented titles
 
-## Prochaines étapes
+### v2
+- [x] Side panel UI (waiting state, Force detection, download list)
+- [x] DASH support (`SegmentBase`, `SegmentList`, `SegmentTemplate` + `SegmentTimeline`)
+- [x] Instagram / Facebook split tracks: `bytestart`/`byteend` normalisation, `efg` asset grouping
+- [x] Dependency-free MP4 muxer (regular and fragmented files)
+- [x] Manifests embedded in page JSON (`video_dash_manifest`)
+- [x] MP3 conversion in the browser (lamejs in a worker, ID3 title)
+- [x] Local helper (yt-dlp + ffmpeg over native messaging) for YouTube and other sites
+- [x] Cross-platform helper installer (Windows registry, macOS, Linux; Chrome, Edge, Brave, Chromium)
+- [x] Site policy with `personal` / `store` builds
+- [x] Packaging script, unit tests, MIT licence
 
-### Fonctionnalités
+## Next
 
-- [ ] Prise en charge du DASH (`.mpd`)
-- [ ] Fusion vidéo + audio séparés directement dans l'extension (ffmpeg.wasm)
-- [ ] Conversion automatique `.ts` → `.mp4` (ffmpeg.wasm)
-- [ ] Enregistrement des directs en continu, avec bouton « Arrêter »
-- [ ] Choix de la qualité dans la page de téléchargement si on arrive sur une playlist maître
-- [ ] Téléchargement des sous-titres (`.vtt`)
-- [ ] Bouton « Copier l'URL » et « Copier la commande yt-dlp / ffmpeg »
+### Features
+- [ ] Choose the quality for helper downloads (best / 1080p / 720p / audio bitrate)
+- [ ] Record live streams continuously, with a Stop button
+- [ ] Subtitles (`.vtt`) download
+- [ ] Mux HLS TS segments into MP4 in the browser (TS demuxer)
+- [ ] MP3 from HLS TS audio in the browser (needs the TS demuxer above)
+- [ ] Playlist downloads through the helper (opt-in)
+- [ ] "Copy yt-dlp command" button for power users
 
-### Fiabilité
-
-- [ ] Écriture progressive sur le disque (File System Access API) pour les très gros fichiers
-- [ ] Reprise d'un téléchargement interrompu
-- [ ] Rafraîchir la playlist quand les URLs de segments expirent
-- [ ] Meilleur filtrage des segments fMP4 qui portent l'extension `.mp4`
-- [ ] Gestion des sites à navigation sans rechargement (SPA) : vider la liste au changement d'URL
+### Reliability
+- [ ] Stream large downloads to disk (File System Access API) instead of memory
+- [ ] Resume interrupted downloads
+- [ ] Refresh expired segment URLs by re-reading the playlist
+- [ ] Clear the list on in-page navigation (SPA sites such as Instagram)
+- [ ] Better pairing of audio/video tracks when several reels play at once
+- [ ] Apply the `Referer` rule to probe requests too
+- [ ] Helper: update yt-dlp from the panel (the `update` command already exists)
 
 ### Interface
+- [ ] Thumbnails and real video titles in the media cards
+- [ ] Options page (download folder, concurrency, MP3 bitrate, file name template)
+- [ ] English translation (`_locales`, `chrome.i18n`)
+- [ ] Desktop notification when a long download finishes
 
-- [ ] Miniature et titre de la vidéo dans la popup
-- [ ] Historique des téléchargements
-- [ ] Page d'options (concurrence, nombre d'essais, dossier, format du nom de fichier)
-- [ ] Traduction en anglais (`_locales`)
-
-### Projet
-
-- [ ] Tests automatisés du parseur HLS dans le dépôt (`node --test`)
-- [ ] Intégration continue GitHub Actions (lint + tests)
-- [ ] Script de packaging (`.zip` prêt pour le Chrome Web Store)
-- [ ] Captures d'écran dans le README
-- [ ] Licence (MIT ?)
+### Project
+- [ ] End-to-end tests in the repo (Playwright + local test server)
+- [ ] GitHub Actions CI (unit tests + build)
+- [ ] Screenshots in the README
+- [ ] Publish the store build on the Chrome Web Store

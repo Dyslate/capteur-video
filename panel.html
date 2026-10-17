@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Capteur vidéo</title>
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <header class="top">
+    <div class="page">
+      <img src="icons/icon32.png" alt="" width="20" height="20">
+      <div class="page-text">
+        <strong id="page-title">Capteur vidéo</strong>
+        <span id="page-host" class="muted"></span>
+      </div>
+    </div>
+    <div class="top-actions">
+      <button id="scan" class="ghost" title="Analyser la page pour trouver les vidéos">Forcer la détection</button>
+      <button id="clear" class="icon ghost" title="Vider la liste" aria-label="Vider la liste">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-3 6h12l-1 12H7L6 9Z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <section id="state" class="state" hidden>
+      <div class="pulse" aria-hidden="true"><span></span><span></span><span></span></div>
+      <p id="state-title">En attente de médias…</p>
+      <p id="state-hint" class="muted">Lancez la lecture de la vidéo, avec le son, puis revenez ici.</p>
+    </section>
+
+    <section id="medias" class="list" aria-label="Médias détectés"></section>
+
+    <section id="jobs-section" hidden>
+      <h2>Téléchargements</h2>
+      <div id="jobs" class="list"></div>
+    </section>
+  </main>
+
+  <footer class="bottom muted">
+    <span>Usage personnel · contenus libres ou les vôtres</span>
+    <span id="toast" role="status" aria-live="polite"></span>
+  </footer>
+
+  <script type="module" src="panel.js"></script>
+</body>
+</html>

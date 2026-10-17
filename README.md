@@ -1,66 +1,111 @@
-# Capteur de flux vidéo
+# Capteur vidéo
 
-Extension Chrome (Manifest V3) qui repère les vidéos lues dans un onglet et permet de les enregistrer.
+A Chrome extension that spots the videos playing on the pages you visit and saves them as **MP4** or **MP3**, from a side panel.
 
-## Ce qu'elle sait faire
+- Works out of the box on Instagram, Facebook, Vimeo and most sites (direct MP4, HLS, DASH, separate audio/video tracks).
+- With the optional **local helper** (yt-dlp + ffmpeg), it also handles YouTube and thousands of other sites.
+- DRM-protected platforms (Netflix, Disney+, Spotify…) are always excluded: their media are encrypted.
 
-- **Vidéos directes** (`.mp4`, `.webm`, `.mov`) : téléchargement en un clic.
-- **Flux HLS** (`.m3u8`) non chiffrés : choix de la qualité, téléchargement de tous les segments en parallèle, puis assemblage en un seul fichier (`.mp4` pour les flux fMP4, `.ts` sinon).
-- **Pistes audio séparées** : proposées à part quand le flux les sépare de la vidéo.
-- Ajout automatique du `Referer` de la page d'origine, que certains serveurs exigent.
+> The user interface is in French. Code, comments and docs are in English.
 
-## Ce qu'elle ne fait pas
+## Features
 
-- Les contenus protégés par DRM ou chiffrés (Netflix, Disney+, Prime Video, Canal+…) sont signalés comme protégés et ignorés.
-- YouTube utilise son propre format de diffusion : utilisez plutôt [yt-dlp](https://github.com/yt-dlp/yt-dlp), dans le respect des conditions du site.
-- Le DASH (`.mpd`) n'est pas encore pris en charge.
-- Pour un direct, seuls les segments disponibles au moment du clic sont enregistrés.
+| | Built-in (no install) | With the local helper |
+|---|---|---|
+| Direct files (`.mp4`, `.webm`, `.m4a`…) | ✅ | ✅ |
+| HLS (`.m3u8`) and DASH (`.mpd`) streams | ✅ | ✅ |
+| Instagram / Facebook (separate video and audio tracks) | ✅ merged into one MP4 | ✅ |
+| MP3 conversion | ✅ (in the browser, LAME) | ✅ (ffmpeg) |
+| YouTube | ❌ | ✅ (personal build) |
+| Thousands of other sites (yt-dlp extractors) | — | ✅ |
+| DRM platforms | ❌ | ❌ |
 
-## Installation
+Other details:
+- **Side panel** with a waiting state, a **Force detection** button that scans the page (`<video>` tags, Open Graph tags, JSON embedded by Instagram/Facebook), and a download list with progress.
+- Quality picker for multi-bitrate streams.
+- Dependency-free **MP4 muxer** (`lib/mp4.js`) that merges video and audio tracks, regular or fragmented.
+- The source page's `Referer` is added to the extension's requests, as some CDNs require it.
 
-1. Ouvrez `chrome://extensions`.
-2. Activez le **Mode développeur** (en haut à droite).
-3. Cliquez sur **Charger l'extension non empaquetée** et choisissez ce dossier.
-4. Épinglez l'icône de l'extension dans la barre d'outils.
+## Install the extension
 
-## Utilisation
+1. Download this repository (**Code → Download ZIP**) and unzip it.
+2. Open `chrome://extensions` and turn on **Developer mode**.
+3. Click **Load unpacked** and pick the project folder.
+4. Pin the extension, then click its icon to open the side panel.
 
-1. Ouvrez la page et **lancez la lecture** de la vidéo.
-2. Le badge de l'icône indique le nombre de flux détectés.
-3. Cliquez sur l'icône, puis sur la qualité voulue.
-4. Pour un flux HLS, un onglet de progression s'ouvre. Laissez-le ouvert jusqu'à la fin.
+## Install the local helper (optional, needed for YouTube)
 
-Les fichiers `.ts` se lisent avec VLC. Pour les convertir en `.mp4` sans perte :
+Requires Python 3.9+.
+
+- **Windows**: double-click `helper/install-windows.bat`.
+- **macOS / Linux**: `sh helper/install.sh`
+
+The installer creates a private Python environment, installs **yt-dlp** and a bundled **ffmpeg**, and registers the helper with Chrome, Edge, Brave and Chromium. Restart Chrome afterwards.
+
+YouTube also needs a JavaScript runtime for yt-dlp. Install **Deno**:
 
 ```
-ffmpeg -i fichier.ts -c copy fichier.mp4
+winget install DenoLand.Deno                    # Windows
+brew install deno                               # macOS
+curl -fsSL https://deno.land/install.sh | sh    # Linux
 ```
 
-Pour fusionner une vidéo et une piste audio téléchargées séparément :
+Files saved by the helper go to `Downloads/Capteur video`. Run the installer again to update yt-dlp; `python helper/install.py --uninstall` removes everything.
+
+The extension has a fixed ID (`gkbhlagbekepghjaegeolhjkmbnkcjpn`, from the `key` in `manifest.json`) so the helper can trust it.
+
+## Builds
 
 ```
-ffmpeg -i video.mp4 -i audio.aac -c copy resultat.mp4
+python3 scripts/build.py           # both zips in dist/
+python3 scripts/build.py store     # Chrome Web Store build only
 ```
 
-## Structure
+| Build | YouTube | Local helper | Publishable on the Chrome Web Store |
+|---|---|---|---|
+| `personal` (default when loading the folder) | via the helper | yes | no |
+| `store` | excluded | removed | yes |
 
-| Fichier | Rôle |
-| --- | --- |
-| `background.js` | Observe le réseau et range les flux détectés par onglet |
-| `popup.html`, `popup.js` | Liste des flux de l'onglet actif |
-| `downloader.html`, `downloader.js` | Téléchargement et assemblage des segments HLS |
-| `common.js` | Lecture des playlists HLS et utilitaires |
-| `style.css` | Styles (thème clair et sombre) |
+The Chrome Web Store rejects extensions that facilitate YouTube downloads, which is why the store build excludes it. The rules live in `lib/policy.js`; the flavour is set in `lib/config.js`.
 
-## Limites connues
+## Project structure
 
-- Le fichier est assemblé en mémoire : pour des vidéos de plusieurs Go, Chrome peut manquer de mémoire.
-- Certains sites lient les URLs de segments à une session courte : si le téléchargement échoue, relancez la lecture puis réessayez.
+| Path | Role |
+|---|---|
+| `manifest.json` | Manifest V3 |
+| `background.js` | Service worker: network detection per tab, helper download jobs |
+| `panel.html`, `panel.css`, `panel.js` | Side panel UI, in-browser downloads (fetch, mux, MP3) |
+| `help.html`, `help.js` | Helper install guide and status |
+| `lib/hls.js`, `lib/dash.js` | HLS and DASH parsers |
+| `lib/mp4.js` | MP4 probe and audio/video muxer |
+| `lib/mp3.js`, `workers/mp3-worker.js` | MP3 encoding (browser decoding + lamejs in a worker) |
+| `lib/fetcher.js` | Segment fetching, retries, `Referer` rules |
+| `lib/scan.js` | Page scan for **Force detection** |
+| `lib/policy.js`, `lib/config.js` | Site exclusions and build flavour |
+| `lib/helper.js` | Panel-side access to the local helper |
+| `helper/` | Local helper (Python native messaging host) and installers |
+| `tests/` | Unit tests and a yt-dlp test double |
+| `scripts/build.py` | Packaging |
+| `store/` | Chrome Web Store listing material |
 
-## Feuille de route
+## Development
 
-Les prochaines évolutions prévues sont listées dans [TODO.md](TODO.md).
+```
+npm test     # unit tests (Node 18+, ffmpeg for the MP4 tests)
+```
 
-## Usage responsable
+The end-to-end behaviour was checked in headless Chromium against synthetic streams: direct MP4, HLS (TS and fMP4), DASH (SegmentTemplate and SegmentBase), Instagram-style split tracks with `bytestart`/`byteend`/`efg` parameters, manifests embedded in page JSON, encrypted streams (refused), and the local helper over native messaging.
 
-Réservez l'extension aux contenus libres de droits, aux vôtres, ou à ceux que vous avez le droit de copier pour un usage privé.
+Note: open-source Chromium builds ship without the AAC decoder, so in-browser MP3 conversion of AAC audio only works in Google Chrome (or Edge/Brave), not in plain Chromium.
+
+## Roadmap
+
+See [TODO.md](TODO.md).
+
+## Responsible use
+
+Download only content you own, content under a free licence, or content you are allowed to copy for private use. Respect creators and each site's terms of service.
+
+## License
+
+[MIT](LICENSE). Bundles [lamejs](https://github.com/zhuker/lamejs) (LGPL) in `vendor/`.

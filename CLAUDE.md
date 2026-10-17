@@ -24,6 +24,7 @@ Context for Claude sessions working on this repository.
 | `lib/log.js` | Diagnostic log. `createLogger(context)`; the service worker writes `log:bg`, each page instance `log:<context>#<id>` (never share one key between instances). `log.html` merges and exports. |
 | `lib/policy.js` + `lib/config.js` | Exclusions and build flavour (`BUILD = "personal" \| "store"`). |
 | `helper/capteur_helper.py` | Native messaging host: `ping`, `download` (`format`, `quality`, `abr`), `reveal`, `update`. stdout is the protocol channel: never print to it. |
+| `installer-module.bat` | Windows entry point at the root: finds a working Python (the Store `python` stub is rejected), runs `helper/install.py`. Batch files stay ASCII with CRLF. |
 | `helper/install.py` | venv + `yt-dlp[default]` + `imageio-ffmpeg`, launcher, host manifest registration. |
 
 Host name: `com.dyslate.capteur_video`. Extension ID: `gkbhlagbekepghjaegeolhjkmbnkcjpn` (from `key` in `manifest.json`; the private key is not in the repo and is not needed).

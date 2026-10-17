@@ -53,7 +53,7 @@ Other details:
 
 Requires Python 3.9+.
 
-- **Windows**: double-click `helper/install-windows.bat`.
+- **Windows**: double-click `installer-module.bat` at the root of the extension folder (it checks that Python is installed).
 - **macOS / Linux**: `sh helper/install.sh`
 
 The installer creates a private Python environment, installs **yt-dlp** and a bundled **ffmpeg**, and registers the helper with Chrome, Edge, Brave and Chromium. Restart Chrome afterwards.
@@ -66,7 +66,7 @@ brew install deno                               # macOS
 curl -fsSL https://deno.land/install.sh | sh    # Linux
 ```
 
-Files saved by the helper go to `Downloads/Capteur video`. When a site changes and downloads start failing, use **Mettre à jour yt-dlp** on the help page (or run the installer again); `python helper/install.py --uninstall` removes everything.
+Files saved by the helper go to `Downloads/Capteur video`. When a site changes and downloads start failing, use **Mettre à jour yt-dlp** on the help page (or run the installer again); `python helper/install.py --uninstall` (or `installer-module.bat --uninstall`) removes everything.
 
 The extension has a fixed ID (`gkbhlagbekepghjaegeolhjkmbnkcjpn`, from the `key` in `manifest.json`) so the helper can trust it.
 

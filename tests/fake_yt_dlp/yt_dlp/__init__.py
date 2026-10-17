@@ -50,12 +50,24 @@ class YoutubeDL:
                     done += len(chunk)
                     self._hooks("progress_hooks", {"status": "downloading", "downloaded_bytes": done, "total_bytes": total, "info_dict": {"format_id": "18"}})
         self._hooks("progress_hooks", {"status": "finished"})
+        codecs = {"mp3": ["-c:a", "libmp3lame"], "m4a": ["-c:a", "aac"], "opus": ["-c:a", "libopus"], "flac": ["-c:a", "flac"], "wav": ["-c:a", "pcm_s16le"]}
         for pp in self.params.get("postprocessors", []):
             if pp["key"] == "FFmpegExtractAudio":
+                codec, q = pp["preferredcodec"], pp.get("preferredquality", "0")
+                self.params["logger"].warning("extract=%s@%s" % (codec, q))
                 self._hooks("postprocessor_hooks", {"status": "started", "postprocessor": "ExtractAudio"})
-                mp3 = os.path.splitext(path)[0] + ".mp3"
-                subprocess.run([self.params["ffmpeg_location"], "-y", "-v", "error", "-i", path, "-vn", "-c:a", "libmp3lame", "-q:a", "4", mp3], check=True)
+                out = os.path.splitext(path)[0] + "." + codec
+                bitrate = ["-b:a", q + "k"] if q != "0" and codec in ("mp3", "m4a", "opus") else []
+                subprocess.run([self.params["ffmpeg_location"], "-y", "-v", "error", "-i", path, "-vn", *codecs[codec], *bitrate, out], check=True)
                 os.remove(path)
-                path = mp3
+                path = out
+            elif pp["key"] == "FFmpegVideoRemuxer":
+                ext = pp["preferedformat"]
+                self._hooks("postprocessor_hooks", {"status": "started", "postprocessor": "FFmpegVideoRemuxer"})
+                if not path.endswith("." + ext):
+                    out = os.path.splitext(path)[0] + "." + ext
+                    subprocess.run([self.params["ffmpeg_location"], "-y", "-v", "error", "-i", path, "-c", "copy", out], check=True)
+                    os.remove(path)
+                    path = out
         info["requested_downloads"] = [{"filepath": path}]
         return info

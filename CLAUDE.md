@@ -20,8 +20,9 @@ Context for Claude sessions working on this repository.
 | `lib/dash.js`, `lib/hls.js` | Manifest parsers (DASH needs `DOMParser`). |
 | `lib/fetcher.js` | Segment fetching (6 parallel, 3 retries), `withReferer()` DNR session rule. |
 | `lib/scan.js` | `scanPage()` injected by "Forcer la détection". Must stay self-contained. |
+| `lib/formats.js` | Format catalogue, `engineFor()` (browser vs helper), `qualitiesFor()`. Every card uses `optionsRow()` in `panel.js`. |
 | `lib/policy.js` + `lib/config.js` | Exclusions and build flavour (`BUILD = "personal" \| "store"`). |
-| `helper/capteur_helper.py` | Native messaging host: `ping`, `download`, `reveal`, `update`. stdout is the protocol channel: never print to it. |
+| `helper/capteur_helper.py` | Native messaging host: `ping`, `download` (`format`, `quality`, `abr`), `reveal`, `update`. stdout is the protocol channel: never print to it. |
 | `helper/install.py` | venv + `yt-dlp[default]` + `imageio-ffmpeg`, launcher, host manifest registration. |
 
 Host name: `com.dyslate.capteur_video`. Extension ID: `gkbhlagbekepghjaegeolhjkmbnkcjpn` (from `key` in `manifest.json`; the private key is not in the repo and is not needed).
@@ -44,6 +45,8 @@ for f in *.js lib/*.js; do node --check "$f"; done
 python3 -m py_compile helper/*.py
 python3 scripts/build.py         # dist/*.zip
 ```
+
+In Playwright tests, wait until `chrome.downloads` exists in the service worker before using it (APIs are bound ~1 s after start), and use a fresh profile so no stale service worker runs.
 
 `tests/fake_yt_dlp/` is a yt-dlp test double for exercising the helper protocol without network access. Plain Chromium has no AAC decoder: test in-browser MP3 with Opus audio, or use Google Chrome.
 

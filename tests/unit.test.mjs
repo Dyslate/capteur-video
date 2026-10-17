@@ -11,6 +11,7 @@ import { parseHls } from "../lib/hls.js";
 import { probe, mux, sniff } from "../lib/mp4.js";
 import { excludedService, helperOnly, isIgnoredRequest } from "../lib/policy.js";
 import { safeName, asciiName, cleanTitle, decodeEfg, formatDuration } from "../lib/util.js";
+import { engineFor, qualitiesFor } from "../lib/formats.js";
 
 const BASE = "https://cdn.example.com/v/master.m3u8?tok=1";
 
@@ -71,6 +72,35 @@ test("utilities", () => {
   assert.equal(formatDuration(3725), "1:02:05");
   const efg = Buffer.from(JSON.stringify({ vencode_tag: "dash_audio", xpv_asset_id: 42 })).toString("base64url");
   assert.deepEqual(decodeEfg(`https://scontent.cdninstagram.com/v/a.mp4?efg=${efg}`), { asset: 42, tag: "dash_audio" });
+});
+
+test("formats: engine choice and qualities", () => {
+  const split = { kind: "file", variants: [{ video: { type: "file" }, audio: { type: "file" } }] };
+  const muxed = { kind: "file", variants: [{ video: { type: "file", direct: true }, audio: null }] };
+  const hls = { kind: "hls", variants: [{ video: { type: "hls" }, audio: null }] };
+  const audioOnly = { kind: "file", audioOnly: true, variants: [{ video: null, audio: { type: "file" } }] };
+  const page = { pageOnly: true };
+
+  assert.equal(engineFor("mp4", split, false), "browser");
+  assert.equal(engineFor("mp4-silent", split, false), "browser");
+  assert.equal(engineFor("mp4-silent", muxed, true), null);
+  assert.equal(engineFor("mp4", hls, true), "helper"); // TS → real MP4 needs ffmpeg
+  assert.equal(engineFor("mp4", hls, false), "browser");
+  assert.equal(engineFor("m4a", split, false), "browser"); // separate AAC track, saved as is
+  assert.equal(engineFor("m4a", muxed, false), null);
+  assert.equal(engineFor("m4a", muxed, true), "helper");
+  assert.equal(engineFor("mkv", split, false), null);
+  assert.equal(engineFor("flac", split, true), "helper");
+  assert.equal(engineFor("mp4", audioOnly, true), null);
+  assert.equal(engineFor("mp3", audioOnly, false), "browser");
+  assert.equal(engineFor("mp3", page, true), "helper");
+  assert.equal(engineFor("mp4", page, false), null);
+
+  assert.deepEqual(qualitiesFor("mp3", "browser").map((q) => q.value), ["192", "320", "256", "128"]);
+  assert.deepEqual(qualitiesFor("wav", "browser"), []);
+  assert.equal(qualitiesFor("mp4", "helper")[0].label, "Meilleure qualité");
+  assert.deepEqual(qualitiesFor("mp4", "browser", [{ value: "0", label: "720p" }]), [{ value: "0", label: "720p" }]);
+  assert.deepEqual(qualitiesFor("mp4", "browser"), []);
 });
 
 const hasFfmpeg = (() => {

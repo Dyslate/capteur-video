@@ -84,11 +84,49 @@ class HelperProtocolTest(unittest.TestCase):
 
     def test_mp3(self):
         replies = self.run_helper({"cmd": "download", "url": self.page, "mode": "mp3"})
-        self.assertIn("mp3", [r.get("stage") for r in replies])
+        self.assertIn("audio", [r.get("stage") for r in replies])
         done = replies[-1]
         self.assertEqual(done["type"], "done")
         self.assertTrue(done["file"].endswith(".mp3"))
         self.assertGreater(os.path.getsize(done["file"]), 10000)
+
+    def probe(self, path):
+        out = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "stream=codec_name,codec_type:format=format_name,bit_rate",
+                              "-of", "json", path], capture_output=True, text=True, check=True)
+        return json.loads(out.stdout)
+
+    def test_audio_formats_and_bitrates(self):
+        cases = {
+            ("mp3", 320): "mp3",
+            ("m4a", 128): "aac",
+            ("opus", 96): "opus",
+            ("flac", None): "flac",
+            ("wav", None): "pcm_s16le",
+        }
+        for (fmt, abr), codec in cases.items():
+            with self.subTest(format=fmt):
+                replies = self.run_helper({"cmd": "download", "url": self.page, "format": fmt, "abr": abr})
+                logs = [r["message"] for r in replies if r["type"] == "log"]
+                expected_q = str(abr) if abr else "0"
+                self.assertIn("extract=%s@%s" % (fmt, expected_q), logs)
+                done = replies[-1]
+                self.assertEqual(done["type"], "done", done)
+                self.assertTrue(done["file"].endswith("." + fmt))
+                streams = self.probe(done["file"])["streams"]
+                self.assertEqual([st["codec_name"] for st in streams], [codec])
+
+    def test_mkv(self):
+        replies = self.run_helper({"cmd": "download", "url": self.page, "format": "mkv", "quality": 480})
+        logs = [r["message"] for r in replies if r["type"] == "log"]
+        self.assertIn("format_sort=res:480", logs)
+        done = replies[-1]
+        self.assertEqual(done["type"], "done", done)
+        self.assertTrue(done["file"].endswith(".mkv"))
+        self.assertIn("matroska", self.probe(done["file"])["format"]["format_name"])
+
+    def test_unknown_format(self):
+        (reply,) = self.run_helper({"cmd": "download", "url": self.page, "format": "avi"})
+        self.assertEqual(reply["type"], "error")
 
     def test_unknown_command(self):
         (reply,) = self.run_helper({"cmd": "nope"})

@@ -22,6 +22,20 @@ A Chrome extension that spots the videos playing on the pages you visit and save
 | Thousands of other sites (yt-dlp extractors) | — | ✅ |
 | DRM platforms | ❌ | ❌ |
 
+Every card has a **Format** picker and a **Quality** picker that adapts to the format:
+
+| Format | Quality choices | Made by |
+|---|---|---|
+| MP4 | the stream's own qualities (or best / 2160p … 360p with the helper) | browser; helper for HLS TS streams |
+| MP4 without sound | stream qualities | browser (separate tracks only) |
+| MKV | best / 2160p … 360p | helper |
+| MP3 | 128 / 192 / 256 / 320 kb/s | browser |
+| M4A (AAC) | 128 / 192 / 256 kb/s | browser for a separate AAC track (no re-encoding), helper otherwise |
+| Opus | 96 / 128 / 160 kb/s | helper |
+| WAV, FLAC (lossless) | — | WAV in the browser, FLAC with the helper |
+
+The panel picks the engine itself; formats that need the helper are listed as "(module requis)" when it is missing. The last format and quality are remembered.
+
 Other details:
 - **Side panel** with a waiting state, a **Force detection** button that scans the page (`<video>` tags, Open Graph tags, JSON embedded by Instagram/Facebook), and a download list with progress.
 - Quality picker for multi-bitrate streams.
@@ -52,9 +66,11 @@ brew install deno                               # macOS
 curl -fsSL https://deno.land/install.sh | sh    # Linux
 ```
 
-Files saved by the helper go to `Downloads/Capteur video`. The helper card has a quality picker (best, 1080p, 720p, 480p). When a site changes and downloads start failing, use **Mettre à jour yt-dlp** on the help page (or run the installer again); `python helper/install.py --uninstall` removes everything.
+Files saved by the helper go to `Downloads/Capteur video`. When a site changes and downloads start failing, use **Mettre à jour yt-dlp** on the help page (or run the installer again); `python helper/install.py --uninstall` removes everything.
 
 The extension has a fixed ID (`gkbhlagbekepghjaegeolhjkmbnkcjpn`, from the `key` in `manifest.json`) so the helper can trust it.
+
+After updating the files, click **Reload** on the extension in `chrome://extensions`, otherwise Chrome may keep running the previous service worker.
 
 ## Builds
 

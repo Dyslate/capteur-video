@@ -170,13 +170,14 @@ const STAGES = {
   download: "Téléchargement…",
   downloaded: "Téléchargé, finalisation…",
   merge: "Assemblage de la vidéo et du son…",
-  mp3: "Conversion en MP3…",
+  audio: "Conversion audio…",
+  remux: "Mise au format…",
   process: "Traitement…",
 };
 
-function startHelperJob({ url, mode, referer, title, quality }) {
+function startHelperJob({ url, mode, format, referer, title, quality, abr }) {
   const id = "h" + Date.now() + Math.random().toString(36).slice(2, 6);
-  const job = { id, title: title || url, mode, url, status: "Démarrage du module…", progress: null, done: false, error: null, file: null };
+  const job = { id, title: title || url, mode, format, quality, abr, url, status: "Démarrage du module…", progress: null, done: false, error: null, file: null };
   let port;
   try {
     port = chrome.runtime.connectNative(HELPER_HOST);
@@ -210,7 +211,7 @@ function startHelperJob({ url, mode, referer, title, quality }) {
     if (!job.done && !job.error) job.error = helperError(chrome.runtime.lastError?.message);
     saveHelperJobs();
   });
-  port.postMessage({ cmd: "download", url, mode, referer, title, quality });
+  port.postMessage({ cmd: "download", url, mode, format, referer, title, quality, abr });
   saveHelperJobs();
   return id;
 }

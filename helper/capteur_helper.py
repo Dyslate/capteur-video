@@ -7,7 +7,9 @@ each message is a 4-byte little-endian length followed by UTF-8 JSON.
 Commands received from the extension:
   {"cmd": "ping"}
       -> {"type": "pong", "version", "ytdlp", "ffmpeg", "jsRuntime", "downloadDir"}
-  {"cmd": "download", "url", "mode": "video"|"mp3", "referer"?, "title"?, "quality"?: 1080|720|480}
+  {"cmd": "download", "url", "format": "mp4"|"mkv"|"mp3"|"m4a"|"opus"|"flac"|"wav",
+   "quality"?: max height (video), "abr"?: kb/s (audio), "referer"?, "title"?}
+      ("mode": "video"|"mp3" is still accepted instead of "format")
       -> {"type": "progress", ...} (many), then {"type": "done", "file"} or {"type": "error", "message"}
   {"cmd": "reveal", "path"}       -> opens the file manager on the file
   {"cmd": "update"}               -> updates yt-dlp, then {"type": "updated", "ytdlp"}
@@ -37,6 +39,10 @@ DRM_DOMAINS = [
     "tv.apple.com", "canalplus.com", "mycanal.fr", "paramountplus.com", "crunchyroll.com",
     "spotify.com", "scdn.co", "deezer.com", "dzcdn.net", "music.apple.com",
 ]
+
+# Output formats: audio ones map to their default bitrate (kb/s; "0" = lossless).
+AUDIO_FORMATS = {"mp3": "192", "m4a": "192", "opus": "128", "flac": "0", "wav": "0"}
+VIDEO_FORMATS = ("mp4", "mkv")
 
 # Native messaging owns stdout: keep the real binary stream for the protocol and send
 # anything a library might print to stderr instead.
@@ -210,7 +216,7 @@ def cmd_download(msg):
     def postprocessor_hook(d):
         if d.get("status") == "started":
             name = d.get("postprocessor", "")
-            stage = "mp3" if "ExtractAudio" in name else "merge" if "Merger" in name else "process"
+            stage = "audio" if "ExtractAudio" in name else "merge" if "Merger" in name else "remux" if "Remux" in name else "process"
             send({"type": "progress", "stage": stage, "percent": None})
 
     options = {
@@ -233,22 +239,34 @@ def cmd_download(msg):
     if msg.get("referer"):
         options["http_headers"] = {"Referer": msg["referer"]}
 
-    if mode == "mp3":
+    # Output format: explicit "format", or derived from the older "mode" field.
+    fmt = (msg.get("format") or ("mp3" if mode in ("mp3", "audio") else "mp4")).lower()
+    abr = msg.get("abr")
+    if fmt in AUDIO_FORMATS:
         if not ffmpeg:
-            return send({"type": "error", "message": "ffmpeg est introuvable : il est nécessaire pour le MP3"})
+            return send({"type": "error", "message": "ffmpeg est introuvable : il est nécessaire pour les formats audio"})
+        if fmt in ("mp3", "m4a", "opus"):
+            bitrate = str(int(abr)) if str(abr or "").isdigit() else AUDIO_FORMATS[fmt]
+        else:
+            bitrate = "0"  # lossless formats (FLAC, WAV)
         options["format"] = "bestaudio/best"
         options["postprocessors"] = [
-            {"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": "192"},
+            {"key": "FFmpegExtractAudio", "preferredcodec": fmt, "preferredquality": bitrate},
             {"key": "FFmpegMetadata"},
         ]
-    else:
-        # Prefer H.264 + AAC so the MP4 plays everywhere, then the best resolution
-        # up to the requested height ("res:720" picks the largest height <= 720).
+    elif fmt in VIDEO_FORMATS:
+        # MP4: prefer H.264 + AAC so it plays everywhere. MKV: best quality, any codec.
+        # "res:720" picks the largest height <= 720.
         quality = msg.get("quality")
         resolution = "res:%d" % int(quality) if str(quality or "").isdigit() else "res"
         options["format"] = "bv*+ba/b" if ffmpeg else "b"
-        options["format_sort"] = ["vcodec:h264", resolution, "acodec:aac"]
-        options["merge_output_format"] = "mp4"
+        options["format_sort"] = ["vcodec:h264", resolution, "acodec:aac"] if fmt == "mp4" else [resolution]
+        options["merge_output_format"] = fmt
+        if ffmpeg:
+            # Single-file sources (no merge needed) still end up in the chosen container.
+            options["postprocessors"] = [{"key": "FFmpegVideoRemuxer", "preferedformat": fmt}]
+    else:
+        return send({"type": "error", "message": "Format inconnu : %s" % fmt})
 
     try:
         with yt_dlp.YoutubeDL(options) as ydl:
@@ -258,9 +276,7 @@ def cmd_download(msg):
             downloads = info.get("requested_downloads") or []
             path = downloads[-1].get("filepath") if downloads else None
             if not path:
-                path = ydl.prepare_filename(info)
-                if mode == "mp3":
-                    path = os.path.splitext(path)[0] + ".mp3"
+                path = os.path.splitext(ydl.prepare_filename(info))[0] + "." + fmt
         send({"type": "done", "file": path, "title": info.get("title")})
     except Exception as e:  # yt-dlp raises many error types; report them all
         message = str(e)

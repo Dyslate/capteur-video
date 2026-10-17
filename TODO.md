@@ -31,10 +31,15 @@ Roadmap. Tick items as they land.
 - [x] `Referer` rule on probe requests too
 - [x] GitHub Actions CI (syntax checks, unit tests, helper protocol tests, zips as artifacts)
 
+### v2.2
+- [x] Format and quality pickers on every card (MP4, MP4 without sound, MKV, MP3, M4A, Opus, WAV, FLAC)
+- [x] MP3 bitrate choice (128 / 192 / 256 / 320 kb/s), WAV encoding in the browser
+- [x] Automatic engine choice (browser or helper), remembered choices
+- [x] Helper: `format` and `abr` options, remux to the chosen container
+
 ## Next
 
 ### Features
-- [ ] MP3 bitrate choice (128 / 192 / 320 kbps)
 - [ ] Record live streams continuously, with a Stop button
 - [ ] Subtitles (`.vtt`) download
 - [ ] Mux HLS TS segments into MP4 in the browser (TS demuxer)

@@ -169,3 +169,9 @@ h2 {
 
 /* Local helper card */
 .card.helper { border-style: dashed; }
+
+/* Format / quality pickers */
+.row.options select.format { flex: 1 1 130px; }
+.row.options select.quality { flex: 1 1 110px; }
+.row.options select[hidden] { display: none; }
+.row.options button { flex: 0 0 auto; }

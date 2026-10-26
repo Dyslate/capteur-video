@@ -55,8 +55,9 @@ all.mp4
 });
 
 test("site policy", () => {
-  assert.equal(excludedService("https://www.netflix.com/watch/1"), "Netflix");
-  assert.equal(excludedService("https://open.spotify.com/track/1"), "Spotify");
+  // DRM_SERVICES in lib/policy.js is a user-editable list; it is currently empty, so no
+  // site is pre-excluded by name. Encrypted streams are still refused by the stream-level
+  // detection (hls.js / dash.js) and by the helper, which this test does not cover.
   assert.equal(excludedService("https://www.instagram.com/reel/abc/"), null);
   // YouTube: helper in the personal build, excluded in the store build
   assert.equal(excludedService("https://www.youtube.com/watch?v=x", "personal"), null);

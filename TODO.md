@@ -49,6 +49,13 @@ Roadmap. Tick items as they land.
 - [x] Windows launchers at the project root: `install-helper.bat`; lab: `start-lab.bat`, `verify.bat`
 - [x] `verify.py` works without ffmpeg (built-in container inspection)
 
+### v2.5
+- [x] Real Chrome download progress (bytes) incl. direct downloads, with Cancel
+- [x] "Ask where to save" option (Save As dialog)
+- [x] Dynamic thumbnail preview on each card (video frame / poster / og:image)
+- [x] Rename the file before downloading (pencil)
+- [x] Estimated size on DASH variants; "Copy link" per card
+
 ## Next
 
 ### Features
@@ -66,10 +73,8 @@ Roadmap. Tick items as they land.
 - [ ] Better pairing of audio/video tracks when several reels play at once
 
 ### Interface
-- [ ] Thumbnails and real video titles in the media cards
 - [ ] Options page (download folder, concurrency, MP3 bitrate, file name template)
 - [ ] French translation as a second language (`_locales`, `chrome.i18n`)
-- [ ] Desktop notification when a long download finishes
 
 ### Project
 - [ ] Automate the test lab with Playwright in CI

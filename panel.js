@@ -11,6 +11,7 @@ import { scanPage } from "./lib/scan.js";
 import { excludedService, helperOnly, isDrmService } from "./lib/policy.js";
 import { pingHelper, startHelperJob, cancelHelperJob, revealFile } from "./lib/helper.js";
 import { BUILD } from "./lib/config.js";
+import { progressFromItem, isUserCancel } from "./lib/downloads.js";
 import * as U from "./lib/util.js";
 import { createLogger } from "./lib/log.js";
 
@@ -62,6 +63,49 @@ async function activeTab() {
   return tab || null;
 }
 
+// ---------- page thumbnail (dynamic preview) ----------
+
+// Injected into the page: a frame of the playing video, or its poster / og:image.
+// Capturing a frame of a cross-origin video taints the canvas and throws, so we fall back.
+function capturePoster() {
+  for (const v of document.querySelectorAll("video")) {
+    if (v.videoWidth && v.readyState >= 2) {
+      try {
+        const w = 192;
+        const h = Math.max(1, Math.round((v.videoHeight * w) / v.videoWidth));
+        const c = document.createElement("canvas");
+        c.width = w;
+        c.height = h;
+        c.getContext("2d").drawImage(v, 0, 0, w, h);
+        return c.toDataURL("image/jpeg", 0.6);
+      } catch {}
+    }
+  }
+  for (const v of document.querySelectorAll("video")) if (v.poster) return v.poster;
+  return document.querySelector('meta[property="og:image"]')?.content || null;
+}
+
+async function grabPageThumb(tab) {
+  if (!tab || !/^https?:/i.test(tab.url || "")) return null;
+  try {
+    const results = await chrome.scripting.executeScript({ target: { tabId: tab.id, allFrames: true }, func: capturePoster });
+    return results.map((r) => r.result).find(Boolean) || null;
+  } catch {
+    return null; // some pages can't be scripted (store pages, blocked frames)
+  }
+}
+
+// Refreshes the thumbnails in place every few seconds, so the preview follows the video.
+function startThumbnailLoop() {
+  setInterval(async () => {
+    if (document.hidden || !document.querySelector("img.thumb")) return;
+    const thumb = await grabPageThumb(state.tab);
+    if (!thumb) return;
+    state.pageThumb = thumb;
+    for (const img of document.querySelectorAll("img.thumb")) img.src = thumb;
+  }, 3000);
+}
+
 let refreshTimer;
 function scheduleRefresh(delay = 250) {
   clearTimeout(refreshTimer);
@@ -106,6 +150,8 @@ async function refresh() {
   const [medias, helper] = await Promise.all([buildMedias(items), useHelper ? pingHelper() : null]);
   if (token !== state.refreshToken) return;
   state.helper = helper;
+  state.pageThumb = (medias.length || onlyHelper) ? await grabPageThumb(tab) : null;
+  if (token !== state.refreshToken) return;
   ulog.info(`tab analysed: ${items.length} raw item(s) → ${medias.length} card(s)`, {
     url,
     title: tab.title,
@@ -181,7 +227,8 @@ function videoChoices(media, engine) {
 }
 
 // Format + quality selects and a download button, shared by every card.
-function optionsRow(media, { primary = true } = {}) {
+// getName: returns the file name the user chose (rename field), optional.
+function optionsRow(media, { primary = true, getName = null } = {}) {
   const helperOk = BUILD !== "store" && !!state.helper?.ok;
   const options = FORMATS.map((f) => ({ f, engine: engineFor(f, media, helperOk) }))
     // Module-only formats are listed (disabled) when the module is missing, so people know they exist.
@@ -218,7 +265,7 @@ function optionsRow(media, { primary = true } = {}) {
 
   const go = el("button", {
     class: primary ? "" : "ghost",
-    onclick: () => download(media, { format: format.value, engine: engineOf(), quality: quality.hidden ? "" : quality.value }),
+    onclick: () => download(media, { format: format.value, engine: engineOf(), quality: quality.hidden ? "" : quality.value, name: getName ? getName() : null }),
   }, "Download");
   return el("div", { class: "row options" }, format, quality, go);
 }
@@ -233,9 +280,10 @@ function helperUrlFor(media) {
   return state.tab?.url;
 }
 
-function download(media, { format, engine, quality }) {
+function download(media, { format, engine, quality, name }) {
   const f = formatById(format);
   if (!f || !engine) return toast("Format unavailable");
+  const chosen = U.safeName(name || U.cleanTitle(state.tab?.title));
   if (engine === "helper") {
     const isVideo = f.group === "video";
     startHelperJob({
@@ -245,12 +293,12 @@ function download(media, { format, engine, quality }) {
       quality: isVideo && quality ? Number(quality) : null,
       abr: !isVideo && quality ? Number(quality) : null,
       referer: state.tab?.url,
-      title: U.cleanTitle(state.tab?.title),
+      title: chosen,
     });
     return toast("Download handed to the helper");
   }
   const variant = f.group === "video" && quality !== "" ? media.variants[Number(quality)] || media.variants[0] : media.variants[0];
-  startJob(media, variant, { format, kbps: f.bitrates ? Number(quality) || f.defaultBitrate : null });
+  startJob(media, variant, { format, kbps: f.bitrates ? Number(quality) || f.defaultBitrate : null, name: chosen });
 }
 
 // ---------- analysis of detected items ----------
@@ -344,7 +392,9 @@ async function buildMedias(items) {
     for (const v of mpd.video) {
       if (seen.has(v.height)) continue;
       seen.add(v.height);
-      variants.push({ height: v.height, label: U.qualityLabel(v.height, v.bandwidth) || "Video", video: { type: "segments", segments: v.segments }, audio: bestAudio });
+      const est = U.estimateBytes(v.bandwidth + (mpd.audio[0]?.bandwidth || 0), mpd.duration);
+      const label = [U.qualityLabel(v.height, v.bandwidth), est ? "~" + U.formatBytes(est) : ""].filter(Boolean).join(" · ") || "Video";
+      variants.push({ height: v.height, label, video: { type: "segments", segments: v.segments }, audio: bestAudio });
     }
     if (!variants.length && bestAudio) variants.push({ label: "Audio", video: null, audio: bestAudio });
     if (!variants.length) continue;
@@ -481,6 +531,55 @@ function renderMedias(medias, { pageCard = null, pageCardFirst = false } = {}) {
   $("medias").replaceChildren(...cards);
 }
 
+// An editable file name: label + pencil, swaps to an input while editing.
+// Returns the nodes to place and a getter for the current name.
+function nameField(defaultName) {
+  let name = defaultName;
+  const text = el("strong", { class: "name-text", title: defaultName }, name);
+  const input = el("input", { class: "rename", type: "text", hidden: true, "aria-label": "File name" });
+  const pencil = el("button", { class: "icon ghost pencil", title: "Rename", "aria-label": "Rename" }, "✎");
+  const show = () => {
+    input.hidden = true;
+    text.hidden = false;
+    pencil.hidden = false;
+  };
+  const commit = () => {
+    name = input.value.trim() || name;
+    text.textContent = name;
+    text.title = name;
+    show();
+  };
+  pencil.addEventListener("click", () => {
+    input.value = name;
+    input.hidden = false;
+    text.hidden = true;
+    pencil.hidden = true;
+    input.focus();
+    input.select();
+  });
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") commit();
+    else if (e.key === "Escape") show();
+  });
+  input.addEventListener("blur", commit);
+  return { nodes: [text, input, pencil], get: () => (input.hidden ? name : input.value.trim() || name) };
+}
+
+async function copyLink(url) {
+  try {
+    await navigator.clipboard.writeText(url);
+    toast("Link copied");
+  } catch {
+    toast("Copy failed");
+  }
+}
+
+function thumbNode(m) {
+  const src = m.thumb || state.pageThumb;
+  if (!src) return el("div", { class: "thumb thumb-empty", "aria-hidden": "true" }, "▶");
+  return el("img", { class: "thumb", src, alt: "", loading: "lazy" });
+}
+
 function mediaCard(m) {
   if (m.protected) {
     return el(
@@ -491,12 +590,22 @@ function mediaCard(m) {
       el("p", { class: "note" }, "Protected content: it cannot be downloaded.")
     );
   }
+  const nf = nameField(U.cleanTitle(state.tab?.title));
   return el(
     "article",
     { class: "card" },
-    el("div", { class: "card-head" }, el("strong", {}, m.title), m.meta ? el("span", { class: "meta" }, m.meta) : null),
-    el("div", { class: "sub", title: m.key }, m.host),
-    optionsRow(m),
+    el(
+      "div",
+      { class: "card-top" },
+      thumbNode(m),
+      el(
+        "div",
+        { class: "card-main" },
+        el("div", { class: "card-head" }, el("div", { class: "name-wrap" }, ...nf.nodes), m.meta ? el("span", { class: "meta" }, m.meta) : null),
+        el("div", { class: "sub", title: m.key }, m.host, m.key && /^https?:/.test(m.key) ? el("button", { class: "link copy", onclick: () => copyLink(m.key) }, "Copy link") : null)
+      )
+    ),
+    optionsRow(m, { getName: nf.get }),
     m.noAudio ? el("p", { class: "note" }, "No audio track found: play the video again with the sound on.") : null
   );
 }
@@ -576,26 +685,78 @@ async function fetchSource(src, job, from, to) {
   return data;
 }
 
+// Whether the user asked, in the panel, to be prompted for the folder each time.
+function wantSaveAs() {
+  try {
+    return localStorage.getItem("saveAs") === "1";
+  } catch {
+    return false;
+  }
+}
+
+// Follows a Chrome download to completion, showing its real byte progress on the job,
+// and lets the job's Cancel button stop it. Resolves once the download is terminal.
+function trackChromeDownload(job, id, { revokeUrl = null } = {}) {
+  return new Promise((resolve) => {
+    const stop = () => chrome.downloads.cancel(id).catch(() => {});
+    job.controller.signal.addEventListener("abort", stop, { once: true });
+    let timer = null;
+    const finish = (patch) => {
+      clearTimeout(timer);
+      job.controller.signal.removeEventListener("abort", stop);
+      if (revokeUrl) URL.revokeObjectURL(revokeUrl);
+      update(job, patch);
+      resolve(patch);
+    };
+    const tick = async () => {
+      let item;
+      try {
+        [item] = await chrome.downloads.search({ id });
+      } catch {}
+      const patch = progressFromItem(item, U.formatBytes);
+      if (!patch) {
+        timer = setTimeout(tick, 400);
+        return;
+      }
+      if (patch.done || patch.error) return finish(patch);
+      update(job, patch);
+      timer = setTimeout(tick, 400);
+    };
+    tick();
+  });
+}
+
+// Hands a URL (blob or remote) to Chrome, then tracks it to completion.
+async function deliverViaChrome(job, url, ext, { revokeUrl = null } = {}) {
+  let res;
+  try {
+    res = await U.download(url, job.name, ext, { saveAs: wantSaveAs() });
+  } catch (e) {
+    if (revokeUrl) URL.revokeObjectURL(revokeUrl);
+    if (isUserCancel(e.message)) {
+      job.log.warn("save dialog cancelled");
+      update(job, { error: "download cancelled" });
+      return null;
+    }
+    throw e;
+  }
+  job.log.info(`handed to Chrome: ${res.filename}`, { downloadId: res.id, saveAs: wantSaveAs() });
+  await trackChromeDownload(job, res.id, { revokeUrl });
+  return res;
+}
+
 async function save(job, blob, ext) {
   const blobUrl = URL.createObjectURL(blob);
-  const { id, filename } = await U.download(blobUrl, job.name, ext);
-  job.log.info(`saved: ${filename}`, { bytes: blob.size, type: blob.type, downloadId: id });
-  const onChange = (d) => {
-    if (d.id === id && d.state && d.state.current !== "in_progress") {
-      URL.revokeObjectURL(blobUrl);
-      chrome.downloads.onChanged.removeListener(onChange);
-    }
-  };
-  chrome.downloads.onChanged.addListener(onChange);
-  update(job, { done: true, progress: 1, downloadId: id, status: `Saved: ${filename} (${U.formatBytes(blob.size)})` });
+  await deliverViaChrome(job, blobUrl, ext, { revokeUrl: blobUrl });
 }
 
 async function jobVideo(job, v, { silent = false } = {}) {
   const audioSrc = silent ? null : v.audio;
-  // Complete file that needs no processing: let Chrome download it directly.
+  // Complete file that needs no processing: let Chrome download it and follow its progress.
   if (v.video.direct && !audioSrc) {
-    const { id, filename } = await U.download(v.video.url, job.name, v.video.ext || "mp4");
-    return update(job, { done: true, downloadId: id, status: `Sent to Chrome downloads: ${filename}` });
+    update(job, { status: "Starting download…" });
+    await deliverViaChrome(job, v.video.url, v.video.ext || "mp4");
+    return;
   }
   const video = await fetchSource(v.video, job, 0, audioSrc ? 0.8 : 0.95);
   const vType = sniff(video);
@@ -659,12 +820,13 @@ function urlsOf(v) {
   return out;
 }
 
-async function startJob(media, variant, { format, kbps }) {
+async function startJob(media, variant, { format, kbps, name }) {
   const f = formatById(format);
+  const chosen = name || U.cleanTitle(state.tab?.title);
   const job = {
     id: ++jobSeq,
-    name: U.cleanTitle(state.tab?.title),
-    title: U.cleanTitle(state.tab?.title),
+    name: chosen,
+    title: chosen,
     badge: f.label.split(" ")[0] + (kbps ? ` · ${kbps}k` : ""),
     status: "Preparing…",
     progress: null,
@@ -730,6 +892,12 @@ $("scan").addEventListener("click", async () => {
 
 $("open-log").addEventListener("click", () => chrome.tabs.create({ url: chrome.runtime.getURL("log.html") }));
 
+const saveAsBox = $("saveas");
+if (saveAsBox) {
+  saveAsBox.checked = wantSaveAs();
+  saveAsBox.addEventListener("change", () => remember("saveAs", saveAsBox.checked ? "1" : "0"));
+}
+
 $("clear").addEventListener("click", async () => {
   if (!state.tab) return;
   await chrome.runtime.sendMessage({ type: "clear-tab", tabId: state.tab.id });
@@ -754,4 +922,5 @@ chrome.storage.session.get("helper:jobs").then((r) => {
   state.helperJobs = r["helper:jobs"] || [];
   renderJobs();
 });
+startThumbnailLoop();
 refresh();

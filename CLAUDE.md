@@ -21,6 +21,7 @@ Context for Claude sessions working on this repository.
 | `lib/fetcher.js` | Segment fetching (6 parallel, 3 retries), `withReferer()` DNR session rule. |
 | `lib/scan.js` | `scanPage()` injected by "Force detection". Must stay self-contained. |
 | `lib/formats.js` | Format catalogue, `engineFor()` (browser vs helper), `qualitiesFor()`. Every card uses `optionsRow()` in `panel.js`. |
+| `lib/downloads.js` | `progressFromItem()` (Chrome DownloadItem → job patch), `baseName()`, `isUserCancel()`. Used by the panel's `trackChromeDownload()` for real byte progress. |
 | `lib/log.js` | Diagnostic log. `createLogger(context)`; the service worker writes `log:bg`, each page instance `log:<context>#<id>` (never share one key between instances). `log.html` merges and exports. |
 | `lib/policy.js` + `lib/config.js` | Exclusions and build flavour (`BUILD = "personal" \| "store"`). |
 | `helper/capteur_helper.py` | Native messaging host: `ping`, `download` (`format`, `quality`, `abr`), `reveal`, `update`. stdout is the protocol channel: never print to it. |

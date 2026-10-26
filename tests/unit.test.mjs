@@ -10,8 +10,9 @@ import path from "node:path";
 import { parseHls } from "../lib/hls.js";
 import { probe, mux, sniff } from "../lib/mp4.js";
 import { excludedService, helperOnly, isIgnoredRequest } from "../lib/policy.js";
-import { safeName, asciiName, cleanTitle, decodeEfg, formatDuration } from "../lib/util.js";
+import { safeName, asciiName, cleanTitle, decodeEfg, formatDuration, estimateBytes, download, formatBytes } from "../lib/util.js";
 import { engineFor, qualitiesFor } from "../lib/formats.js";
+import { progressFromItem, baseName, isUserCancel } from "../lib/downloads.js";
 
 const BASE = "https://cdn.example.com/v/master.m3u8?tok=1";
 
@@ -103,6 +104,77 @@ test("formats: engine choice and qualities", () => {
   assert.equal(qualitiesFor("mp4", "helper")[0].label, "Best quality");
   assert.deepEqual(qualitiesFor("mp4", "browser", [{ value: "0", label: "720p" }]), [{ value: "0", label: "720p" }]);
   assert.deepEqual(qualitiesFor("mp4", "browser"), []);
+});
+
+test("estimateBytes", () => {
+  assert.equal(estimateBytes(8_000_000, 10), 10_000_000); // 8 Mb/s × 10 s = 10 MB
+  assert.equal(estimateBytes(0, 10), null);
+  assert.equal(estimateBytes(8_000_000, 0), null);
+  assert.equal(estimateBytes(null, 10), null);
+  assert.equal(estimateBytes(-1, 10), null);
+});
+
+test("baseName handles both separators", () => {
+  assert.equal(baseName("C:\\Users\\x\\Downloads\\v.mp4"), "v.mp4");
+  assert.equal(baseName("/home/x/v.mp4"), "v.mp4");
+  assert.equal(baseName("v.mp4"), "v.mp4");
+  assert.equal(baseName(""), "");
+});
+
+test("isUserCancel", () => {
+  assert.equal(isUserCancel("Download canceled by the user"), true);
+  assert.equal(isUserCancel("USER_CANCELED"), true);
+  assert.equal(isUserCancel("Network error"), false);
+  assert.equal(isUserCancel(undefined), false);
+});
+
+test("progressFromItem: in-progress, paused, unknown total", () => {
+  const p = progressFromItem({ state: "in_progress", bytesReceived: 50, totalBytes: 200 }, formatBytes);
+  assert.equal(p.progress, 0.25);
+  assert.match(p.status, /Downloading/);
+  assert.match(p.status, /100 KB|B/); // formatted bytes present
+
+  const unknown = progressFromItem({ state: "in_progress", bytesReceived: 50, totalBytes: 0 }, formatBytes);
+  assert.equal(unknown.progress, null);
+
+  const paused = progressFromItem({ state: "in_progress", bytesReceived: 10, totalBytes: 100, paused: true }, formatBytes);
+  assert.match(paused.status, /Paused/);
+
+  assert.equal(progressFromItem(null, formatBytes), null);
+});
+
+test("progressFromItem: complete and interrupted", () => {
+  const done = progressFromItem({ state: "complete", id: 7, filename: "C:\\Users\\x\\Downloads\\clip.mp4", fileSize: 2048 }, formatBytes);
+  assert.equal(done.done, true);
+  assert.equal(done.progress, 1);
+  assert.equal(done.downloadId, 7);
+  assert.match(done.status, /Saved: clip\.mp4/);
+
+  assert.equal(progressFromItem({ state: "interrupted", error: "USER_CANCELED" }, formatBytes).error, "download cancelled");
+  assert.match(progressFromItem({ state: "interrupted", error: "NETWORK_FAILED" }, formatBytes).error, /interrupted.*NETWORK_FAILED/);
+});
+
+test("download: passes saveAs and retries a rejected file name", async () => {
+  const calls = [];
+  global.chrome = {
+    downloads: {
+      download: async (opts) => {
+        calls.push(opts);
+        if (/[^\x00-\x7f]/.test(opts.filename)) throw new Error("Invalid filename");
+        return 42;
+      },
+    },
+  };
+  try {
+    const res = await download("blob:x", "Été à Paris", "mp3", { saveAs: true });
+    assert.equal(res.id, 42);
+    assert.equal(calls[0].saveAs, true);
+    assert.equal(calls[0].filename, "Été à Paris.mp3"); // first try keeps accents → rejected
+    assert.equal(calls[1].filename, "Ete a Paris.mp3"); // ascii retry succeeds
+    assert.equal(res.filename, "Ete a Paris.mp3");
+  } finally {
+    delete global.chrome;
+  }
 });
 
 const hasFfmpeg = (() => {

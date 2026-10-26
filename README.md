@@ -34,7 +34,7 @@ Every card has a **Format** picker and a **Quality** picker that adapts to the f
 | Opus | 96 / 128 / 160 kb/s | helper |
 | WAV, FLAC (lossless) | — | WAV in the browser, FLAC with the helper |
 
-The panel picks the engine itself; formats that need the helper are listed as "(helper required)" when it is missing. The last format and quality are remembered.
+Each card shows a dynamic thumbnail, the estimated size, a rename field (pencil) and a "Copy link" button; downloads show real byte progress and an optional "Ask where to save" dialog (footer). The panel picks the engine itself; formats that need the helper are listed as "(helper required)" when it is missing. The last format and quality are remembered.
 
 Other details:
 - **Side panel** with a waiting state, a **Force detection** button that scans the page (`<video>` tags, Open Graph tags, JSON embedded by Instagram/Facebook), and a download list with progress.

@@ -146,6 +146,26 @@ def ffmpeg_location():
         return None
 
 
+def probe_duration(path, ffmpeg):
+    # Real duration of the file on disk, parsed from ffmpeg's own report.
+    # This reflects what was actually written, which can be far shorter than the
+    # duration advertised in a manifest (e.g. a site that serves a short decoy clip).
+    if not ffmpeg or not path or not os.path.exists(path):
+        return None
+    try:
+        out = subprocess.run(
+            [ffmpeg, "-hide_banner", "-i", path],
+            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=30,
+        ).stderr.decode("utf-8", "replace")
+    except Exception:
+        return None
+    m = re.search(r"Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)", out)
+    if not m:
+        return None
+    h, mn, s = int(m.group(1)), int(m.group(2)), float(m.group(3))
+    return h * 3600 + mn * 60 + s
+
+
 def js_runtime():
     # yt-dlp needs a JavaScript runtime for YouTube (Deno is the default one).
     for name in ("deno", "node", "bun"):
@@ -339,8 +359,11 @@ def cmd_download(msg):
             raise RuntimeError("final file not found after the download")
         final = unique_path(os.path.join(download_dir(), os.path.basename(path)))
         shutil.move(path, final)
-        log.info("done: %s (%s bytes)", final, os.path.getsize(final))
-        send({"type": "done", "file": final, "title": info.get("title"), "seconds": info.get("duration")})
+        # Prefer the real duration of the written file over the manifest's advertised one.
+        real_seconds = probe_duration(final, ffmpeg)
+        seconds = real_seconds if real_seconds is not None else info.get("duration")
+        log.info("done: %s (%s bytes, %ss real / %ss advertised)", final, os.path.getsize(final), real_seconds, info.get("duration"))
+        send({"type": "done", "file": final, "title": info.get("title"), "seconds": seconds})
     except Exception as e:  # yt-dlp raises many error types; report them all
         log.exception("download failed")
         message = str(e)

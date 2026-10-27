@@ -147,6 +147,7 @@ h2 {
   padding: 1px 7px; border-radius: 99px;
   background: var(--accent-soft); color: var(--accent);
 }
+.badge.locked { background: color-mix(in srgb, var(--error) 15%, transparent); color: var(--error); white-space: nowrap; }
 .card.protected { opacity: .8; }
 
 /* Téléchargements */

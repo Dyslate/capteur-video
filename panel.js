@@ -636,7 +636,13 @@ function mediaCard(m) {
       el(
         "div",
         { class: "card-main" },
-        el("div", { class: "card-head" }, el("div", { class: "name-wrap" }, ...nf.nodes), m.meta ? el("span", { class: "meta" }, m.meta) : null),
+        el(
+          "div",
+          { class: "card-head" },
+          el("div", { class: "name-wrap" }, ...nf.nodes),
+          m.gated ? el("span", { class: "badge locked", title: "This host gates the direct stream behind a signed token: a direct download may return a short decoy, not the full video." }, "🔒 locked") : null,
+          m.meta ? el("span", { class: "meta" }, m.meta) : null
+        ),
         el("div", { class: "sub", title: m.key }, m.host, m.key && /^https?:/.test(m.key) ? el("button", { class: "link copy", onclick: () => copyLink(m.key) }, "Copy link") : null)
       )
     ),

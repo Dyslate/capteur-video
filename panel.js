@@ -82,7 +82,19 @@ function capturePoster() {
     }
   }
   for (const v of document.querySelectorAll("video")) if (v.poster) return v.poster;
-  return document.querySelector('meta[property="og:image"]')?.content || null;
+  const og = document.querySelector('meta[property="og:image"], meta[name="twitter:image"]')?.content;
+  if (og) return og;
+  // Last resort: the largest visible image on the page (often the poster / cover art).
+  let best = null;
+  let bestArea = 40 * 40; // ignore icons
+  for (const img of document.querySelectorAll("img")) {
+    const area = (img.naturalWidth || img.width) * (img.naturalHeight || img.height);
+    if (area > bestArea && /^https?:/i.test(img.currentSrc || img.src || "")) {
+      bestArea = area;
+      best = img.currentSrc || img.src;
+    }
+  }
+  return best;
 }
 
 async function grabPageThumb(tab) {
@@ -310,6 +322,21 @@ async function cached(key, fn) {
 
 const stripQuery = (u) => u.split(/[?#]/)[0];
 
+// Reads an HLS media playlist for its duration and, when every segment has a byte range, its exact size.
+async function hlsMediaInfo(url) {
+  return cached("hlsinfo:" + url, async () => {
+    const pl = parseHls(await fetchText(url), url);
+    if (pl.type !== "media") return { duration: 0, bytes: null };
+    return { duration: pl.duration, bytes: hlsExactBytes(pl.segments) };
+  });
+}
+
+// Sum of byte-range lengths when they cover every segment, else null (we don't know without downloading).
+function hlsExactBytes(segments) {
+  const ranged = segments.filter((s) => s.range);
+  return ranged.length && ranged.length === segments.length ? ranged.reduce((n, s) => n + s.range.length, 0) : null;
+}
+
 async function buildMedias(items) {
   const medias = [];
   const hlsItems = items.filter((i) => i.kind === "hls");
@@ -343,22 +370,26 @@ async function buildMedias(items) {
       continue;
     }
     if (pl.type === "master") {
+      // One extra request on the top variant gives the duration (and, with the bitrate, a size estimate).
+      const top = pl.variants[0];
+      const info = top ? await hlsMediaInfo(top.url) : null;
+      const duration = info && !info.error ? info.duration : 0;
       const variants = pl.variants.map((v) => {
         const audio = v.audioGroup ? pl.audio.find((a) => a.group === v.audioGroup && a.isDefault) || pl.audio.find((a) => a.group === v.audioGroup) : null;
-        return {
-          height: v.height,
-          label: U.qualityLabel(v.height, v.bandwidth) || "Default quality",
-          video: { type: "hls", url: v.url },
-          audio: audio ? { type: "hls", url: audio.url } : null,
-        };
+        const est = U.estimateBytes(v.bandwidth, duration);
+        const label = [U.qualityLabel(v.height, v.bandwidth), est ? "~" + U.formatBytes(est) : ""].filter(Boolean).join(" · ") || "Default quality";
+        return { height: v.height, label, video: { type: "hls", url: v.url }, audio: audio ? { type: "hls", url: audio.url } : null };
       });
-      medias.push({ key: it.url, kind: "hls", title: "HLS stream", host: U.hostOf(it.url), variants });
+      const bestEst = top ? U.estimateBytes(top.bandwidth, duration) : null;
+      const meta = [duration ? U.formatDuration(duration) : "", bestEst ? "~" + U.formatBytes(bestEst) : ""].filter(Boolean).join(" · ");
+      medias.push({ key: it.url, kind: "hls", title: "HLS stream", host: U.hostOf(it.url), meta, variants });
     } else {
+      const bytes = hlsExactBytes(pl.segments);
       medias.push({
         key: it.url,
         kind: "hls",
         title: pl.live ? "Live HLS stream" : "HLS stream",
-        meta: pl.live ? "live" : U.formatDuration(pl.duration),
+        meta: pl.live ? "live" : [U.formatDuration(pl.duration), bytes ? U.formatBytes(bytes) : ""].filter(Boolean).join(" · "),
         host: U.hostOf(it.url),
         variants: [{ label: "Single quality", video: { type: "segments", segments: pl.segments }, audio: null }],
       });

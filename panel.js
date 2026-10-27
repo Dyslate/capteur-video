@@ -661,7 +661,18 @@ function mediaCard(m) {
       )
     ),
     optionsRow(m, { getName: nf.get }),
-    m.gated ? el("p", { class: "note warn" }, "This host gates the direct stream: a plain download may return a short decoy clip, not the full video. The advertised duration is what the manifest claims, not what is served.") : null,
+    m.gated
+          ? el(
+              "div",
+              { class: "gated-box" },
+              el(
+                "p",
+                { class: "note warn" },
+                "This host gates the direct stream. A plain download may return a short decoy. Open the player so the browser gets a valid token, then download from the new tab (or come back here)."
+              ),
+              el("button", { class: "ghost", onclick: () => openGatedPlayer(m.key) }, "Open player")
+            )
+          : null,
     m.noAudio ? el("p", { class: "note" }, "No audio track found: play the video again with the sound on.") : null
   );
 }

@@ -615,6 +615,20 @@ function thumbNode(m) {
   return el("img", { class: "thumb", src, alt: "", loading: "lazy" });
 }
 
+// Opens a gated HLS master in a new tab so the browser obtains a valid
+// signed token. The network detector then picks up the real segments.
+// After a short delay we refresh the panel so the user sees the new cards
+// when they come back.
+async function openGatedPlayer(url) {
+  try {
+    await chrome.tabs.create({ url, active: true });
+    toast("Player opened — re-detecting in a few seconds");
+    setTimeout(() => scheduleRefresh(0), 3500);
+  } catch {
+    toast("Could not open the player");
+  }
+}
+
 function mediaCard(m) {
   if (m.protected) {
     return el(

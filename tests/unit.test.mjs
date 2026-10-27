@@ -9,7 +9,7 @@ import path from "node:path";
 
 import { parseHls } from "../lib/hls.js";
 import { probe, mux, sniff } from "../lib/mp4.js";
-import { excludedService, helperOnly, isIgnoredRequest } from "../lib/policy.js";
+import { excludedService, helperOnly, isIgnoredRequest, isGatedStream } from "../lib/policy.js";
 import { safeName, asciiName, cleanTitle, decodeEfg, formatDuration, estimateBytes, download, formatBytes } from "../lib/util.js";
 import { engineFor, qualitiesFor } from "../lib/formats.js";
 import { progressFromItem, baseName, isUserCancel, decoyNote } from "../lib/downloads.js";
@@ -65,6 +65,13 @@ test("site policy", () => {
   assert.equal(helperOnly("https://m.youtube.com/watch?v=x", "personal"), true);
   assert.equal(helperOnly("https://m.youtube.com/watch?v=x", "store"), false);
   assert.equal(isIgnoredRequest("https://rr1---sn-x.googlevideo.com/videoplayback?x=1"), true);
+});
+
+test("isGatedStream flags hosts that serve a decoy to direct downloads", () => {
+  assert.equal(isGatedStream("https://strm3.uqload.vc/hls2/01/0547/index-v1-a1.m3u8?t=x&s=y&e=14400"), true);
+  assert.equal(isGatedStream("https://uqload.com/embed-abc.html"), true);
+  assert.equal(isGatedStream("https://scontent.cdninstagram.com/v/reel.mp4"), false);
+  assert.equal(isGatedStream("not a url"), false);
 });
 
 test("utilities", () => {

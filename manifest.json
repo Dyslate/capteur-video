@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Capteur vidéo",
   "short_name": "Capteur vidéo",
-  "version": "2.6.1",
+  "version": "2.6.2",
   "description": "Detects the videos on the pages you visit and saves them as MP4, MP3 and more (Instagram, Facebook, YouTube through the local helper…).",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtp4gGBd/F3TdAYhf9akbQUTOEjtyIFH7zJtperRyf0kvdnj2sK5KoVSBUu5WbsNjq/IfTlsQlJMFAYXc1Z81sInltSz9Mft8ARmD2itF4sEw8A4JVS7s9td/3OM8PeWwUwtN8ekF2Wdh6OHk8WraJKfJ98FSQ8nWXA+y7aso+xE8x7aJDuwT2e0Mva78uklnPpSZrD/rcxUr5j1Q+WQtVhzmt6Q0S4LzDDkHj2PhQylLaR7mRW4CTKw1PWlSOaCzGjG7AdtUn4omWkraDRdr9ksvSRt3OTq76gAgvZTWQDrWqqOkdJG9hoGBG4RZkteRQ75D5S8XI29xRfesdOUyQwIDAQAB",
   "minimum_chrome_version": "116",

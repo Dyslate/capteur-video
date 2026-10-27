@@ -8,7 +8,7 @@ import { encodeWav } from "./lib/wav.js";
 import { FORMATS, formatById, engineFor, qualitiesFor } from "./lib/formats.js";
 import { fetchText, fetchHead, fetchSegments, withReferer } from "./lib/fetcher.js";
 import { scanPage } from "./lib/scan.js";
-import { excludedService, helperOnly, isDrmService } from "./lib/policy.js";
+import { excludedService, helperOnly, isDrmService, isGatedStream } from "./lib/policy.js";
 import { pingHelper, startHelperJob, cancelHelperJob, revealFile } from "./lib/helper.js";
 import { BUILD } from "./lib/config.js";
 import { progressFromItem, isUserCancel, decoyNote } from "./lib/downloads.js";
@@ -382,8 +382,9 @@ async function buildMedias(items) {
         return { height: v.height, label, video: { type: "hls", url: v.url }, audio: audio ? { type: "hls", url: audio.url } : null };
       });
       const bestEst = top ? U.estimateBytes(top.bandwidth, duration) : null;
-      const meta = [duration ? U.formatDuration(duration) : "", bestEst ? "~" + U.formatBytes(bestEst) : ""].filter(Boolean).join(" · ");
-      medias.push({ key: it.url, kind: "hls", title: "HLS stream", host: U.hostOf(it.url), meta, seconds: duration, variants });
+      const gated = isGatedStream(it.url);
+      const meta = [duration ? (gated ? "advertised " : "") + U.formatDuration(duration) : "", bestEst ? "~" + U.formatBytes(bestEst) : ""].filter(Boolean).join(" · ");
+      medias.push({ key: it.url, kind: "hls", title: "HLS stream", host: U.hostOf(it.url), meta, seconds: duration, gated, variants });
     } else {
       const bytes = hlsExactBytes(pl.segments);
       medias.push({
@@ -640,6 +641,7 @@ function mediaCard(m) {
       )
     ),
     optionsRow(m, { getName: nf.get }),
+    m.gated ? el("p", { class: "note warn" }, "This host gates the direct stream: a plain download may return a short decoy clip, not the full video. The advertised duration is what the manifest claims, not what is served.") : null,
     m.noAudio ? el("p", { class: "note" }, "No audio track found: play the video again with the sound on.") : null
   );
 }

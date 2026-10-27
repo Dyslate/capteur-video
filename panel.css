@@ -142,6 +142,19 @@ h2 {
 .row select { flex: 1 1 120px; }
 .note { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
 .note.warn { color: var(--error); }
+/* Gated hosts (uqload…): actionable warning + open-player button */
+.gated-box {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.gated-box .note {
+  margin: 0;
+}
+.gated-box button {
+  align-self: flex-start;
+}
 .badge {
   display: inline-block; font-size: 11px; font-weight: 600;
   padding: 1px 7px; border-radius: 99px;

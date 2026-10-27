@@ -340,7 +340,7 @@ def cmd_download(msg):
         final = unique_path(os.path.join(download_dir(), os.path.basename(path)))
         shutil.move(path, final)
         log.info("done: %s (%s bytes)", final, os.path.getsize(final))
-        send({"type": "done", "file": final, "title": info.get("title")})
+        send({"type": "done", "file": final, "title": info.get("title"), "seconds": info.get("duration")})
     except Exception as e:  # yt-dlp raises many error types; report them all
         log.exception("download failed")
         message = str(e)

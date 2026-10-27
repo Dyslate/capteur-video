@@ -123,6 +123,7 @@ class HelperProtocolTest(unittest.TestCase):
         self.assertEqual(done["type"], "done", done)
         self.assertTrue(done["file"].endswith(".mkv"))
         self.assertIn("matroska", self.probe(done["file"])["format"]["format_name"])
+        self.assertEqual(done["seconds"], 123.0)  # helper forwards yt-dlp info.duration
 
     def test_unknown_format(self):
         (reply,) = self.run_helper({"cmd": "download", "url": self.page, "format": "avi"})

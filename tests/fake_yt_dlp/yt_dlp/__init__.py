@@ -57,7 +57,7 @@ class YoutubeDL:
         if self.params.get("logger") and self.params.get("format_sort"):
             self.params["logger"].warning("format_sort=" + ",".join(self.params["format_sort"]))
         title, media = self._extract(url)
-        info = {"id": "fake123", "title": title, "ext": "mp4"}
+        info = {"id": "fake123", "title": title, "ext": "mp4", "duration": 123.0}
         path = self.prepare_filename(info)
         with urllib.request.urlopen(media) as r:
             total = int(r.headers.get("content-length") or 0)

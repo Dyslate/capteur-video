@@ -11,7 +11,7 @@ import { scanPage } from "./lib/scan.js";
 import { excludedService, helperOnly, isDrmService } from "./lib/policy.js";
 import { pingHelper, startHelperJob, cancelHelperJob, revealFile } from "./lib/helper.js";
 import { BUILD } from "./lib/config.js";
-import { progressFromItem, isUserCancel } from "./lib/downloads.js";
+import { progressFromItem, isUserCancel, decoyNote } from "./lib/downloads.js";
 import * as U from "./lib/util.js";
 import { createLogger } from "./lib/log.js";
 
@@ -306,6 +306,7 @@ function download(media, { format, engine, quality, name }) {
       abr: !isVideo && quality ? Number(quality) : null,
       referer: state.tab?.url,
       title: chosen,
+      advertisedSeconds: media.seconds || 0,
     });
     return toast("Download handed to the helper");
   }
@@ -382,7 +383,7 @@ async function buildMedias(items) {
       });
       const bestEst = top ? U.estimateBytes(top.bandwidth, duration) : null;
       const meta = [duration ? U.formatDuration(duration) : "", bestEst ? "~" + U.formatBytes(bestEst) : ""].filter(Boolean).join(" · ");
-      medias.push({ key: it.url, kind: "hls", title: "HLS stream", host: U.hostOf(it.url), meta, variants });
+      medias.push({ key: it.url, kind: "hls", title: "HLS stream", host: U.hostOf(it.url), meta, seconds: duration, variants });
     } else {
       const bytes = hlsExactBytes(pl.segments);
       medias.push({
@@ -391,6 +392,7 @@ async function buildMedias(items) {
         title: pl.live ? "Live HLS stream" : "HLS stream",
         meta: pl.live ? "live" : [U.formatDuration(pl.duration), bytes ? U.formatBytes(bytes) : ""].filter(Boolean).join(" · "),
         host: U.hostOf(it.url),
+        seconds: pl.live ? 0 : pl.duration,
         variants: [{ label: "Single quality", video: { type: "segments", segments: pl.segments }, audio: null }],
       });
     }
@@ -435,6 +437,7 @@ async function buildMedias(items) {
       title: it.kind === "dash-inline" ? "Video from the page" : "DASH stream",
       meta: mpd.live ? "live" : mpd.duration ? U.formatDuration(mpd.duration) : "",
       host,
+      seconds: mpd.live ? 0 : mpd.duration,
       variants,
       audioOnly: !mpd.video.length,
     });
@@ -649,8 +652,14 @@ let jobSeq = 0;
 state.helperJobs = [];
 
 function helperJobView(h) {
+  let status = h.status;
+  if (h.done && h.seconds) {
+    const note = decoyNote(h.advertisedSeconds, h.seconds, U.formatDuration);
+    status += " · " + U.formatDuration(h.seconds) + (note ? " " + note : "");
+  }
   return {
     ...h,
+    status,
     badge: (formatById(h.format)?.label.split(" ")[0] || (h.mode === "mp3" ? "MP3" : "Video")) + (h.abr ? ` · ${h.abr}k` : h.quality ? ` · ${h.quality}p` : "") + " · yt-dlp",
     cancel: () => cancelHelperJob(h.id),
     reveal: h.file ? () => revealFile(h.file) : null,
@@ -693,6 +702,8 @@ async function fetchSource(src, job, from, to) {
     if (pl.type === "master") pl = parseHls(await fetchText(pl.variants[0].url, job.controller.signal), pl.variants[0].url);
     if (pl.encrypted) throw new Error("Encrypted stream: not supported");
     segments = pl.segments;
+    // Duration actually served now (can differ from what the card advertised: decoy clips).
+    if (pl.duration) job.srcSeconds = Math.max(job.srcSeconds || 0, pl.duration);
   } else if (src.type === "segments") {
     segments = src.segments;
   } else {
@@ -773,7 +784,18 @@ async function deliverViaChrome(job, url, ext, { revokeUrl = null } = {}) {
   }
   job.log.info(`handed to Chrome: ${res.filename}`, { downloadId: res.id, saveAs: wantSaveAs() });
   await trackChromeDownload(job, res.id, { revokeUrl });
+  annotateDuration(job);
   return res;
+}
+
+// Appends the real downloaded duration to a finished job, and a decoy warning when it is
+// far shorter than what the card advertised (some hosts serve a short placeholder clip).
+function annotateDuration(job) {
+  if (!job.done || !job.srcSeconds) return;
+  const note = decoyNote(job.advertisedSeconds, job.srcSeconds, U.formatDuration);
+  const extra = " · " + U.formatDuration(job.srcSeconds) + (note ? " " + note : "");
+  if (note) job.log.warn("short download vs advertised", { got: job.srcSeconds, advertised: job.advertisedSeconds });
+  update(job, { status: job.status + extra });
 }
 
 async function save(job, blob, ext) {
@@ -858,6 +880,7 @@ async function startJob(media, variant, { format, kbps, name }) {
     id: ++jobSeq,
     name: chosen,
     title: chosen,
+    advertisedSeconds: media.seconds || 0,
     badge: f.label.split(" ")[0] + (kbps ? ` · ${kbps}k` : ""),
     status: "Preparing…",
     progress: null,

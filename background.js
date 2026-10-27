@@ -197,9 +197,9 @@ const STAGES = {
   process: "Processing…",
 };
 
-function startHelperJob({ url, mode, format, referer, title, quality, abr }) {
+function startHelperJob({ url, mode, format, referer, title, quality, abr, advertisedSeconds }) {
   const id = "h" + Date.now() + Math.random().toString(36).slice(2, 6);
-  const job = { id, title: title || url, mode, format, quality, abr, url, status: "Starting the helper…", progress: null, done: false, error: null, file: null };
+  const job = { id, title: title || url, mode, format, quality, abr, advertisedSeconds: advertisedSeconds || 0, seconds: null, url, status: "Starting the helper…", progress: null, done: false, error: null, file: null };
   hlog.info(`job ${id}: start`, { url, format, quality, abr, mode });
   let port;
   try {
@@ -227,6 +227,7 @@ function startHelperJob({ url, mode, format, referer, title, quality, abr }) {
       job.done = true;
       job.progress = 1;
       job.file = m.file;
+      job.seconds = m.seconds || null;
       job.status = "Saved: " + (m.file || "").split(/[\\/]/).pop();
       port.disconnect();
     } else if (m.type === "error") {

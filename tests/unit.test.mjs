@@ -12,7 +12,7 @@ import { probe, mux, sniff } from "../lib/mp4.js";
 import { excludedService, helperOnly, isIgnoredRequest } from "../lib/policy.js";
 import { safeName, asciiName, cleanTitle, decodeEfg, formatDuration, estimateBytes, download, formatBytes } from "../lib/util.js";
 import { engineFor, qualitiesFor } from "../lib/formats.js";
-import { progressFromItem, baseName, isUserCancel } from "../lib/downloads.js";
+import { progressFromItem, baseName, isUserCancel, decoyNote } from "../lib/downloads.js";
 
 const BASE = "https://cdn.example.com/v/master.m3u8?tok=1";
 
@@ -127,6 +127,19 @@ test("isUserCancel", () => {
   assert.equal(isUserCancel("USER_CANCELED"), true);
   assert.equal(isUserCancel("Network error"), false);
   assert.equal(isUserCancel(undefined), false);
+});
+
+test("decoyNote", () => {
+  // actual far shorter than advertised → warning with both durations
+  assert.match(decoyNote(1440, 30, formatDuration), /decoy clip \(0:30 of 24:00\)/);
+  // actual close to advertised → no warning
+  assert.equal(decoyNote(1440, 1400, formatDuration), "");
+  // exactly half or more → no warning
+  assert.equal(decoyNote(100, 50, formatDuration), "");
+  // unknown durations → no warning
+  assert.equal(decoyNote(0, 30, formatDuration), "");
+  assert.equal(decoyNote(1440, 0, formatDuration), "");
+  assert.equal(decoyNote(undefined, undefined, formatDuration), "");
 });
 
 test("progressFromItem: in-progress, paused, unknown total", () => {
